@@ -131,6 +131,7 @@ import socket
 import struct
 import sys
 import time
+from pathlib import Path
 
 import evdev
 
@@ -236,7 +237,7 @@ def main():
         print(__doc__)
         sys.exit(0)
     if '--make-md' in sys.argv:
-        with open('README.md', 'w') as md:
+        with open(Path(__file__).with_suffix('.md').name, 'w') as md:
             md.write(__doc__)
         sys.exit(0)
     scale_factor = float(sys.argv[sys.argv.index('-f') + 1]) if '-f' in sys.argv else 35.0
