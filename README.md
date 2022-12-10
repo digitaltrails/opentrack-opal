@@ -1,20 +1,34 @@
 
-Linux evdev injectors for opentrack UDP-output
-==============================================
+Opentrack UDP-Output to Linux evdev python mouse and stick
+==========================================================
 
-opentrack-mouse - Linux opentrack UDP mouse-emulator
-----------------------------------------------------
+Some examples of head-tracking using [opentrack](https://github.com/opentrack/opentrack/blob/master/README.md)
+and the Linux evdev library via the [python evdev](https://python-evdev.readthedocs.io/en/latest/) wrapper.
 
-Translate head-tracking opentrack UDP-output to Linux-evdev/HID mouse events.
+Opentrack UDP-Output protocol
+-----------------------------
+
+Opentrack's UDP-Output protocol is used as a language neutral interface
+to python.  Each opentrack UDP-Output packet contains 6 little-endian 
+doubles: x, y, z, yaw, pitch, and roll.
+
+opentrack-mouse - UDP-Output to mouse-events
+============================================
+
+Translate opentrack UDP-output to Linux-evdev/HID mouse 
+events.
 
 See [opentrack-mouse.md](opentrack-mouse.md).
 
-opentrack-stick - opentrack to Linux HID stick events
-----------------------------------------------------
+opentrack-stick - UDP-Output to joystick-events
+===============================================
 
-Convert opentrack UDP-output to Linux-HID joystick events.
+Translate opentrack UDP-output to Linux-evdev joystick events.
 
 See [opentrack-stick.md](opentrack-stick.md).
+
+I originally started these experiments with just a mouse-output 
+in mind, the stick output came later.
 
 Author
 ======

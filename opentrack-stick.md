@@ -52,8 +52,8 @@ move head.
 Opentrack Protocol
 ==================
 
-Each opentrack UDP-packet is assumed to contain 6 doubles,
-little-endian: x,y,z,yaw,pitch,roll.
+Each opentrack UDP-Output packet contains 6 little-endian
+doubles: x, y, z, yaw, pitch, and roll.
 
 Licence
 =======
