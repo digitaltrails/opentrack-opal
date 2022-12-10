@@ -1,8 +1,9 @@
 
-Opentrack UDP-Output to Linux evdev python mouse and stick
-==========================================================
+Opentrack-opal - Output to Python And Linux 
+===========================================
 
-Some examples of head-tracking using [opentrack](https://github.com/opentrack/opentrack/blob/master/README.md)
+Opentrack UDP-Output to Linux python evdev mouse and stick.  Two examples
+of head-tracking using [opentrack](https://github.com/opentrack/opentrack/blob/master/README.md)
 and the Linux evdev library via the [python evdev](https://python-evdev.readthedocs.io/en/latest/) wrapper.
 
 Opentrack UDP-Output protocol
