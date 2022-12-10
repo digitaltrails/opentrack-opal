@@ -17,7 +17,7 @@ Optional Arguments
     -w <float>   Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
     -a <zone>    Auto-center (press middle mouse button) if all tracking
-                 values are in the -zone..+zone (default 0.0)
+                 values are in the -zone..+zone (default 0.0, suggest 5.0)
     -t <float>   Auto-center required seconds for all values remain in
                  the zone for this many millis (default 1.0)
     -z           Translate opentrack z-axis values to mouse wheel
@@ -155,8 +155,9 @@ class OpenTrackMouse:
         self.center_arrival_time_ns = 0
         self.previous_event_time = time.time_ns()
         print(f"Scale output by: {scale_factor}\nMaximum output interval: {wait_secs} seconds (then repeat previous values)\n"
-              f"Auto center when all values in zone: -{auto_center}..+{auto_center} for {auto_center_secs} second(s)\n"
               f"Wheel enabled: {enable_wheel}\nDebug: {debug}")
+        print(f"Auto center when all values in zone: -{auto_center}..+{auto_center}" 
+              f" for {auto_center_secs} second(s)\n" if auto_center > 0.0 else "Auto center: off")
         # Have to include the buttons for the hid device to work:
         self.hid_device = evdev.UInput(
             {
@@ -165,10 +166,10 @@ class OpenTrackMouse:
             },
             name="opentrack_mouse")
 
-    def start(self):
-        sock = socket.socket(socket.AF_INET,  # Internet
-                             socket.SOCK_DGRAM)  # UDP
-        sock.bind((UDP_IP, UDP_PORT))
+    def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
+        print(f"UDP IP={udp_ip} PORT={udp_port}")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((udp_ip, udp_port))
         sock.setblocking(False)
         f = self.scale_factor
         current = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
@@ -179,7 +180,8 @@ class OpenTrackMouse:
                 # Unpack 6 little endian doubles into a list:
                 current = struct.unpack('<6d', data[0:48])
                 if self.auto_center > 0.0:
-                    self.__auto_center__(current)
+                    if self.__auto_center__(current):
+                        continue  # Don't send the current data, we just centered, moving again might cause a jink
             # using pitch for x, yaw for y, z movement for z
             _, _, z, yaw, pitch, _ = self.previous
             _, _, zn, yaw_new, pitch_new, _ = current
@@ -192,7 +194,7 @@ class OpenTrackMouse:
                 self.centered = False  # Currently off centre
                 self.center_arrival_time_ns = 0
                 print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
-                return
+                return False
         if not self.centered:
             now_ns = time.time_ns()
             if self.center_arrival_time_ns == 0:
@@ -201,15 +203,17 @@ class OpenTrackMouse:
             if (now_ns - self.center_arrival_time_ns) < self.auto_center_ns:
                 # Waiting to see if we stay in the center long enough
                 print(f"Time in center: {(now_ns - self.center_arrival_time_ns) / 1_000_000_000} secs") if self.debug else False
-                return
+                return False
             print(f"Middle click (centering) {time.strftime('%H:%M:%S')}")
-            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_MIDDLE, 1)
+            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_TRIGGER, 1)
             self.hid_device.syn()
             time.sleep(0.05)  # Apparently, a mouse click interval is about 0.05 seconds.
-            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_MIDDLE, 0)
+            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_TRIGGER, 0)
             self.hid_device.syn()
             self.centered = True
             self.center_arrival_time_ns = 0
+            return True
+        return False
 
     def __send_to_hid__(self, x, y, z):
         i = 0
@@ -242,7 +246,7 @@ def main():
         sys.exit(0)
     scale_factor = float(sys.argv[sys.argv.index('-f') + 1]) if '-f' in sys.argv else 35.0
     wait_secs = float(sys.argv[sys.argv.index('-w') + 1]) if '-w' in sys.argv else 0.001
-    auto_center = float(sys.argv[sys.argv.index('-a') + 1]) if '-a' in sys.argv else 5.0
+    auto_center = float(sys.argv[sys.argv.index('-a') + 1]) if '-a' in sys.argv else 0.0
     auto_center_secs = float(sys.argv[sys.argv.index('-t') + 1]) if '-t' in sys.argv else 1.0
     mouse = OpenTrackMouse(scale_factor=scale_factor,
                            wait_secs=wait_secs,
@@ -250,7 +254,9 @@ def main():
                            auto_center_secs=auto_center_secs,
                            enable_wheel='-z' in sys.argv,
                            debug='-d' in sys.argv)
-    mouse.start()
+    udp_ip = sys.argv[sys.argv.index('-i') + 1] if '-i' in sys.argv else UDP_IP
+    udp_port = int(sys.argv[sys.argv.index('-p') + 1]) if '-p' in sys.argv else UDP_PORT
+    mouse.start(udp_ip=udp_ip, udp_port=udp_port)
 
 
 if __name__ == '__main__':

@@ -55,6 +55,19 @@ Opentrack Protocol
 Each opentrack UDP-Output packet contains 6 little-endian
 doubles: x, y, z, yaw, pitch, and roll.
 
+Testing
+=======
+
+The following test rig can be employed:
+
+1. Connect a real stick and use it as the input to `opentrack`.
+2. Send the `opentrack` `UPD-Output` to UDP 127.0.0.1 Port 5005.
+3. Start `opentrack-stick`.
+4. Start a second `opentrack` with a `UDP-Input` foo 127.0.0.1 Port 5005,
+   but don't connect any outputs.
+5. Use the first opentrack to guide your use of the real stick, and
+   use the second opentrack to confirm that the correct events are passed.
+
 Licence
 =======
 
