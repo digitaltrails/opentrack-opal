@@ -1,17 +1,29 @@
 
-Opentrack-opal - Output to Python And Linux 
+opentrack-opal - Output to Python And Linux 
 ===========================================
 
-Opentrack UDP-Output to Linux python evdev mouse and stick.  Two examples
+Opentrack UDP-Output to python-Linux-evdev mouse and stick.  Two examples
 of head-tracking using [opentrack](https://github.com/opentrack/opentrack/blob/master/README.md)
 and the Linux evdev library via the [python evdev](https://python-evdev.readthedocs.io/en/latest/) wrapper.
 
-Opentrack UDP-Output protocol
+opentrack UDP-Output protocol
 -----------------------------
 
-Opentrack's UDP-Output protocol is used as a language neutral interface
+opentrack's UDP-Output protocol is used as a language neutral interface
 to python.  Each opentrack UDP-Output packet contains 6 little-endian 
 doubles: x, y, z, yaw, pitch, and roll.
+
+Linux evdev - Event Device
+--------------------------
+
+The evdev subsystem is a generic input event interface in Linux kernel.
+Userspace applications can interact with evdev to create and intercept
+keyboard, mouse, and joystick events.  Events may be raised by both
+real and virtual devices.
+
+The opentrack-opal python scripts make use of the python evdev wrapper
+to libevdev which is in turn a wrapper for evdev devices and the kernel's
+evdev subsystem.   
 
 opentrack-mouse - UDP-Output to mouse-events
 ============================================
