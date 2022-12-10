@@ -80,22 +80,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import datetime
-import select
+import socket
 import struct
 import sys
 import time
 from pathlib import Path
 
 import evdev
-import socket
-
 from evdev import AbsInfo
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
 
-class OpenTrackStick():
+class OpenTrackStick:
 
     def __init__(self, debug=False, training=False):
         self.debug = debug
@@ -111,7 +109,7 @@ class OpenTrackStick():
             (evdev.ecodes.ABS_X, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
             (evdev.ecodes.ABS_Y, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
             (evdev.ecodes.ABS_Z, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            ]
+        ]
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
         capabilities = {
             evdev.ecodes.EV_KEY: [evdev.ecodes.BTN_TRIGGER, evdev.ecodes.BTN_TRIGGER_HAPPY],
@@ -146,7 +144,6 @@ class OpenTrackStick():
                         training_data.append(bv if 0.1 * abs_info.min < v < 0.1 * abs_info.max else v)
                     current = tuple(training_data)
                 self.__send_to_hid__(current)
-
 
     def __send_to_hid__(self, values):
         for cap, value, name in zip(self.abs_caps, values, self.order):
