@@ -21,7 +21,7 @@ Optional Arguments
     -a <zone>    Auto-center (press middle mouse button) if all tracking
                  values are in the -zone..+zone (default 0.0, suggest 5.0)
     -t <float>   Auto-center required seconds for all values remain in
-                 the zone for this many millis (default 1.0)
+                 the zone for this many seconds (default 1.0)
     -z           Translate opentrack z-axis values to mouse wheel
                  events (default is off)
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
