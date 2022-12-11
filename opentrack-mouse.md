@@ -93,7 +93,8 @@ Limitations
 Achieving the most appropriate settings is dependent on tweaking
 the opentrack settings, the opentrack-mouse settings, and possibly
 the end-application settings, the subtleties of which can be somewhat
-opaque.
+opaque.  For inputs such as `smoothtrack`, even the network may
+affect the smoothness (for example, 5GHz WiFi versus 2GHz WiFi).
 
 The resulting movement can sometimes be jerky depending on the device
 generating the input and the timings of data exchanges.
