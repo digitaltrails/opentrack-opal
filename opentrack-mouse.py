@@ -24,6 +24,8 @@ Optional Arguments
                  the zone for this many millis (default 1.0)
     -z           Translate opentrack z-axis values to mouse wheel
                  events (default is off)
+    -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
+    -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -d           Output mouse event x, y, z values to stdout for
                  debugging purposes.
 
