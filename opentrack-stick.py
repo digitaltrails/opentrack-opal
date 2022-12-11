@@ -52,18 +52,21 @@ Get the python (python-3) ebdev library:
 
 Requires udev rule for access:
 
-sudo cat > /etc/udev/rules.d/65-opentrack-evdev.rules <EOF
-KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="opentrack*",  TAG+="uaccess"
-EOF
-sudo udevadm control --reload-rules ; udevadm trigger
+    sudo cat > /etc/udev/rules.d/65-opentrack-evdev.rules <EOF
+    KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="opentrack*",  TAG+="uaccess"
+    EOF
+    sudo udevadm control --reload-rules ; udevadm trigger
 
 Run this script:
 
     python3 opentrack-stick.py
 
 Start opentrack; select Output `UDP over network`; configure the
-output option to IP address 127.0.0.1, port 5005; start tracking;
-move head.
+output option to IP address 127.0.0.1, port 5005; start tracking.
+Now start a game/application that makes use of a joystick;
+in the game/application choose the joystick called `openstack-stick`.
+If the app/game requires you to configure the stick, you may find the
+`-q` training option useful.
 
 Opentrack Protocol
 ==================
@@ -78,6 +81,11 @@ Opentrack-stick is relatively new and hasn't undergone sufficient
 testing to establish what is required to make it of practical use.
 It has not been tested in a gaming environment, it has only been
 tested in a desktop test rig.
+
+Some games support specific models of controller, they may not
+recognise some aspects of the `opentrack-stick` controller.  In
+those cases, you may need to search for ways to define new
+controllers.
 
 Testing
 =======
