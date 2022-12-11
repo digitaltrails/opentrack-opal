@@ -68,6 +68,14 @@ Opentrack Protocol
 Each opentrack UDP-Output packet contains 6 little-endian
 doubles: x, y, z, yaw, pitch, and roll.
 
+Limitations
+===========
+
+Opentrack-stick is relatively new and hasn't undergone sufficient
+testing to establish what is required to make it of practical use.
+It has not been tested in a gaming environment, it has only been
+tested in a desktop test rig.
+
 Testing
 =======
 
@@ -84,6 +92,7 @@ The following test rig can be employed:
 6. Start the second `opentrack`.
 7. Use the first opentrack to guide your use of the real stick, and
    use the second opentrack to confirm that the correct events are passed.
+
 
 Licence
 =======
