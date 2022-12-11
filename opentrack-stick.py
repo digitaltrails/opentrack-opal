@@ -32,6 +32,15 @@ independent of X11/Wayland, applications cannot differentiate them
 from ordinary joystick events.  This means opentrack-stick will work in
 any application, including environments such as Steam Proton.
 
+Auto-centering can be enabled for applications where the center
+may drift from the true-center AND the application supports a
+binding for a re-center command.  Bind the application's re-center
+command to the middle mouse button and enable auto-centering by
+using the opentrack-mouse -a option. When enabled, opentrack-mouse
+will pull the stick's trigger when the input-values from
+opentrack remain in the middle zone for the time specified
+by the -t option.
+
 Quick Start
 ===========
 

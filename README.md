@@ -43,8 +43,13 @@ See [opentrack-stick.md](opentrack-stick.md).
 I originally started these experiments with just a mouse-output 
 in mind, the stick output came later. 
 
+Limitations
+===========
+
 Opentrack-stick is relatively new and hasn't undergone sufficient
 testing to establish what is required to make it of practical use.
+It has not been tested in a gaming environment, it has only been
+tested in a desktop test rig.
 
 Author
 ======
