@@ -12,11 +12,13 @@ Usage:
 Optional Arguments
 ------------------
 
-    -f <float>   Scale factor, alters sensitivity (default 35.0)
+    -f <float>   Scale factor, alters sensitivity (default 30.0, 10.0 is good for games)
     -w <float>   Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
+    -s <int>     Smooth over n values (default 100)
+    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.1)
     -a <zone>    Auto-center (press middle mouse button) if all tracking
-                 values are in the -zone..+zone (default 0.0)
+                 values are in the -zone..+zone (default 0.0, suggest 5.0)
     -t <float>   Auto-center required seconds for all values remain in
                  the zone for this many millis (default 1.0)
     -z           Translate opentrack z-axis values to mouse wheel
@@ -44,9 +46,11 @@ movement.
 Auto-centering can be enabled for applications where the center
 may drift from the true-center AND the application supports a
 binding for a re-center command.  Bind the application's re-center
-command to the middle mouse button and enable auto-centering.
-Opentrack-mouse will click the middle mouse button when the
-values from opentrack remain in the middle zone for a set time.
+command to the middle mouse button and enable auto-centering by
+using the opentrack-mouse -a option. When enabled, opentrack-mouse
+will click the middle mouse button when the input-values from
+opentrack remain in the middle zone for the time specified
+by the -t option.
 
 Quick Start
 ===========
@@ -92,9 +96,10 @@ opaque.
 The resulting movement can sometimes be jerky depending on the device
 generating the input and the timings of data exchanges.
 
-Apart from interpolating during input gaps, opentrack-mouse doesn't
-perform any other smoothing. Opentrack presents quite a few options
-for smoothing, that's probably where more extensive smoothing belongs.
+Apart from interpolating during input gaps, and some simple smoothing,
+opentrack-mouse doesn't perform any intelligent analysis of the data.
+Opentrack  presents some more complex output filters with options
+for smoothing.
 
 Author
 ======

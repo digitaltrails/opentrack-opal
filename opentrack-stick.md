@@ -7,13 +7,17 @@ Translate opentrack UDP-output to Linux-HID joystick events.
 Usage:
 ======
 
-    python3 opentrack-stick.py [-d] [-t]
+    python3 opentrack-stick.py [-d] [-q]
 
 Optional Arguments
 ------------------
 
+    -a <zone>    Auto-center (press middle mouse button) if all tracking
+                 values are in the -zone..+zone (default 0.0, suggest 5.0)
+    -t <float>   Auto-center required seconds for all values remain in
+                 the zone for this many millis (default 1.0)
     -d           Output joystick event x, y, z values to stdout for debugging purposes.
-    -t           Training: limit each axis to large changes to eliminate other-axis "noise"
+    -q           Training: limit each axis to large changes to eliminate other-axis "noise"
                  when mapping an axis within a game.
 
 Description
@@ -26,6 +30,15 @@ The evdev joystick events are introduced at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
 from ordinary joystick events.  This means opentrack-stick will work in
 any application, including environments such as Steam Proton.
+
+Auto-centering can be enabled for applications where the center
+may drift from the true-center AND the application supports a
+binding for a re-center command.  Bind the application's re-center
+command to the middle mouse button and enable auto-centering by
+using the opentrack-mouse -a option. When enabled, opentrack-mouse
+will pull the stick's trigger when the input-values from
+opentrack remain in the middle zone for the time specified
+by the -t option.
 
 Quick Start
 ===========
@@ -65,7 +78,11 @@ The following test rig can be employed:
 3. Start `opentrack-stick`.
 4. Start a second `opentrack` with a `UDP-Input` foo 127.0.0.1 Port 5005,
    but don't connect any outputs.
-5. Use the first opentrack to guide your use of the real stick, and
+5  On the second `opentrack`, under `Input` `Linux joystick input`, click
+   the right options box, the dropdown of joystick choices should include
+   `opentrack-stick` as a possible joystick.
+6. Start the second `opentrack`.
+7. Use the first opentrack to guide your use of the real stick, and
    use the second opentrack to confirm that the correct events are passed.
 
 Licence
