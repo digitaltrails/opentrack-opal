@@ -217,43 +217,47 @@ class OpenTrackMouse:
                 self.center_arrival_time_ns = 0
                 print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
                 return False
+        # If we reach here and have not yet re-centered, we need to see if it's time to do so:
         if not self.centered:
             now_ns = time.time_ns()
             if self.center_arrival_time_ns == 0:
+                # We just arrived at the center
                 print(f"Arrival in center {time.strftime('%H:%M:%S')}") if self.debug else False
                 self.center_arrival_time_ns = now_ns
             if (now_ns - self.center_arrival_time_ns) < self.auto_center_ns:
-                # Waiting to see if we stay in the center long enough
+                # Still at the center, waiting to see if we stay in the center long enough
                 print(f"Time in center: {(now_ns - self.center_arrival_time_ns) / 1_000_000_000} secs") if self.debug else False
                 return False
+            # If we reach here, we've been sitting in the center long enough - re-center now.
             print(f"Middle click (centering) {time.strftime('%H:%M:%S')}")
             self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_MIDDLE, 1)
             self.hid_device.syn()
             time.sleep(0.05)  # Apparently, a mouse click interval is about 0.05 seconds.
             self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_MIDDLE, 0)
             self.hid_device.syn()
+            # Reset - turn off anymore attempts to recenter until after we move off center.
             self.centered = True
             self.center_arrival_time_ns = 0
             return True
         return False
 
     def __send_to_hid__(self, x, y, z):
-        i = 0
+        event_count = 0
         if x != 0:
             self.hid_device.write(evdev.ecodes.EV_REL, evdev.ecodes.REL_X, x)
-            i += 1
+            event_count += 1
         if y != 0:
             self.hid_device.write(evdev.ecodes.EV_REL, evdev.ecodes.REL_Y, y)
-            i += 1
+            event_count += 1
         if self.enable_wheel and z != 0:
             # Z is a wheel - treat differently
             self.hid_device.write(evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, -1 if z < 0 else 1)
-            i += 1
+            event_count += 1
         now = time.time_ns()
         if self.debug:
-            print(f"[{i}] {(now - self.previous_event_time) / 1_000_000} ms x={x}, y={y}, z={z} {self.current}")
+            print(f"[{event_count}] {(now - self.previous_event_time) / 1_000_000} ms x={x}, y={y}, z={z} {self.current}")
         self.previous_event_time = now
-        if i:
+        if event_count != 0:
             self.hid_device.syn()
         return
 
