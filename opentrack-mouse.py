@@ -294,11 +294,10 @@ class Smooth:
             return v
         self.values.pop(0)
         self.values.append(v)
-        a = 0.1
-        p = self.values[0] * a
-        for i in range(1, len(self.values)):
-            p = p + a * (self.values[i] - p)
-        return p
+        smoothed = self.values[0] * self.alpha
+        for value in self.values[1:]:
+            smoothed = smoothed + self.alpha * (value - smoothed)
+        return smoothed
 
 
 def main():
