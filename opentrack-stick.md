@@ -91,18 +91,23 @@ Testing
 
 The following test rig can be employed:
 
-1. Connect a real stick and use it as the input to `opentrack`.
-2. Send the `opentrack` `UPD-Output` to UDP 127.0.0.1 Port 5005.
-3. Start `opentrack-stick`.
-4. Start a second `opentrack` with a `UDP-Input` foo 127.0.0.1 Port 5005,
-   but don't connect any outputs.
-5  On the second `opentrack`, under `Input` `Linux joystick input`, click
-   the right options box, the dropdown of joystick choices should include
-   `opentrack-stick` as a possible joystick.
-6. Start the second `opentrack`.
-7. Use the first opentrack to guide your use of the real stick, and
-   use the second opentrack to confirm that the correct events are passed.
+1. Connect a real stick.
+2. Start an opentrack, set the `Input` to `Linux joystick input`, then
+   open the input option and choose the real joystick as the
+   input `Device`.
+3. Send the `opentrack` `UPD-Output` to UDP 127.0.0.1 Port 5005
+   and start tracking.
+4. Run `opentrack-stick.py`.
+5. Start a second `opentrack`, under `Input` `Linux joystick input`, the
+   `Device` options should now include `opentrack-stick`, choose this
+   as the input.  Set up a UDP `Output` that goes nowhere by picking a port
+   nothing is listening on.  Start it tracking.
+6. The stick moves from the first opentrack should be passed to
+   opentrack-stick, which should then be echoed by the second
+   opentrack.
 
+Of stop after step-4 and run an evdev listener on `/dev/input/event<N>`
+device associated with the stick (see snoop-evdev.py).
 
 Licence
 =======

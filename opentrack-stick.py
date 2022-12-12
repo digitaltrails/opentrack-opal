@@ -107,6 +107,8 @@ The following test rig can be employed:
    opentrack-stick, which should then be echoed by the second
    opentrack.
 
+Of stop after step-4 and run an evdev listener on `/dev/input/event<N>`
+device associated with the stick (see snoop-evdev.py).
 
 Licence
 =======
