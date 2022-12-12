@@ -196,7 +196,7 @@ class OpenTrackMouse:
                 if self.auto_center > 0.0:
                     if self.__auto_center__(self.current):
                         continue  # Don't send the current data, we just centered, moving again might cause a jink
-            # using pitch for x, yaw for y, z movement for z
+            # using yaw for mouse-x, pitch for mouse-y, z movement for mouse-z
             _, _, z, yaw, pitch, _ = self.previous
             _, _, zn, yaw_new, pitch_new, _ = self.current
             # Note the hacky scale factor for Z, probably needs a better algorithm that also consults pitch
