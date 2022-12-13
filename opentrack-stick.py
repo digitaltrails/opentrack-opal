@@ -138,14 +138,17 @@ import socket
 import struct
 import sys
 import time
+from collections import namedtuple
 from pathlib import Path
 
 import evdev
 from evdev import AbsInfo
+from evdev import ecodes as ec
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
+OpenTrackCap = namedtuple("OpenTrackCap", "name value min max")
 
 class OpenTrackStick:
 
@@ -162,21 +165,41 @@ class OpenTrackStick:
         print(f"Training: {self.training}")
         print(f"Auto center when all values in zone: -{auto_center}..+{auto_center}"
               f" for {auto_center_secs} second(s)\n" if not self.training and auto_center > 0.0 else "Auto center: off")
-        self.order = ('x', 'y', 'z', 'yaw', 'pitch', 'roll')
+        self.opentrack_caps = [OpenTrackCap('x', 0, -75, 75),
+                               OpenTrackCap('y', 0, -75, 75),
+                               OpenTrackCap('z', 0, -75, 75),
+                               OpenTrackCap('yaw', 0, -90, 90),
+                               OpenTrackCap('pitch', 0, -90, 90),
+                               OpenTrackCap('roll', 0, -90, 90)]
         self.abs_caps = [
-            (evdev.ecodes.ABS_RX, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            (evdev.ecodes.ABS_RY, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            (evdev.ecodes.ABS_RZ, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            (evdev.ecodes.ABS_X, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            (evdev.ecodes.ABS_Y, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
-            (evdev.ecodes.ABS_Z, AbsInfo(value=0, min=-90, max=90, fuzz=0, flat=0, resolution=0)),
+            (ec.ABS_RX,    AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
+            (ec.ABS_RY,    AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
+            (ec.ABS_RZ,    AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
+            (ec.ABS_X,     AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
+            (ec.ABS_Y,     AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
+            (ec.ABS_Z,     AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
+            (ec.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
+            (ec.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
         ]
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
         capabilities = {
-            evdev.ecodes.EV_KEY: [evdev.ecodes.BTN_TRIGGER, evdev.ecodes.BTN_THUMB, evdev.ecodes.BTN_THUMB2],
-            evdev.ecodes.EV_ABS: self.abs_caps
+            ec.EV_KEY: [ec.BTN_A, ec.BTN_GAMEPAD, ec.BTN_SOUTH, ec.BTN_B,
+                        ec.BTN_A,ec.BTN_GAMEPAD,ec.BTN_SOUTH,
+                        ec.BTN_B,ec.BTN_EAST,
+                        ec.BTN_NORTH,ec.BTN_X,
+                        ec.BTN_WEST,ec.BTN_Y,
+                        ec.BTN_TL,
+                        ec.BTN_TR,
+                        ec.BTN_SELECT,
+                        ec.BTN_START,
+                        ec.BTN_MODE,
+                        ec.BTN_THUMBL,
+                        ec.BTN_THUMBR,
+                        ],
+            ec.EV_ABS: self.abs_caps,
+            ec.EV_FF: [ec.FF_EFFECT_MIN, ec.FF_RUMBLE]
         }
-        self.hid_device = evdev.UInput(capabilities, name="opentrack-stick")
+        self.hid_device = evdev.UInput(capabilities, name="Microsoft X-Box 360 pad 0")
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -193,43 +216,44 @@ class OpenTrackStick:
             if current != self.previous:
                 # print(current, self.previous) if debug else False
                 self.previous = current
-                if self.training:
-                    # Only send extreme values (to stop noise interfering in the training).
-                    current = self.__training__restrictions__(current)
                 self.__send_to_hid__(current)
 
-    def __training__restrictions__(self, current):
-        training_data = []
-        for i, (cap, v, name) in enumerate(zip(self.abs_caps, current, self.order)):
-            abs_info = cap[1]
-            if 0.5 * abs_info.min < v < 0.5 * abs_info.max:
-                training_value = abs_info.value
-            else:
-                training_value = abs_info.min if v < abs_info.value else abs_info.max
-                if training_value == self.previous_training_value:
-                    continue  # Don't send the same value twice - might confuse the target application/game
-                else:
-                    print(f"Training: {name} input={v} -> send={training_value} "
-                          f"range is ({abs_info.min}..{abs_info.value}..{abs_info.max})")
-                    self.previous_training_value = training_value
-            training_data.append(training_value)
-        current = tuple(training_data)
-        return current
-
     def __send_to_hid__(self, values):
-        for cap, value, name in zip(self.abs_caps, values, self.order):
-            v = int(value)
-            if self.debug and abs(v) > 0:
-                print(datetime.datetime.now(), name, v)
-            self.hid_device.write(evdev.ecodes.EV_ABS, cap[0], v)
+        for cap, value, ot_info in zip(self.abs_caps[:6], values, self.opentrack_caps):
+            ev_info = cap[1]
+            scaled = ev_info.min + round(((value - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
+            if self.training:
+                # Only send extreme values (to stop noise interfering in the training).
+                training_value = self.__training_value__(scaled, ev_info, ot_info.name)
+                print(f"{datetime.datetime.now()}: {ot_info.name} received-value={value} "
+                      f"device-scaled-value={scaled} training-value={training_value}")
+                scaled = training_value
+            elif self.debug:
+                print(f"{datetime.datetime.now()}: {ot_info.name} received-value={value} device-scaled-value={scaled}")
+            self.hid_device.write(ec.EV_ABS, cap[0], scaled)
         self.hid_device.syn()
+
+    def __training_value__(self, value, abs_info, name):
+        if self.training:
+            middle_value = (abs_info.min + abs_info.max) // 2
+            range_constraint = 0.2 * (abs_info.max - abs_info.min)
+            if (abs_info.min + range_constraint) <= value <= (abs_info.max - range_constraint):
+                training_value = middle_value
+            else:
+                # Send the min or max value depending on +-ve of the original value
+                training_value = abs_info.min if value < middle_value else abs_info.max
+                print(f"Training: {name} scaled output value={value} -> training value={training_value} "
+                      f"device range is ({abs_info.min}..{middle_value}..{abs_info.max})")
+            return training_value
+        return value
 
     def __auto_center__(self, values):
         for value in values[0:2] + values[3:6]:  # Ignore z - forward backward offset
             if not (-self.auto_center < value < self.auto_center):
+                if self.centered:
+                    print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
                 self.centered = False  # Currently off centre
                 self.center_arrival_time_ns = 0
-                print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
                 return False
         if not self.centered:
             now_ns = time.time_ns()
@@ -241,10 +265,10 @@ class OpenTrackStick:
                 print(f"Time in center: {(now_ns - self.center_arrival_time_ns) / 1_000_000_000} secs") if self.debug else False
                 return False
             print(f"Middle click (centering) {time.strftime('%H:%M:%S')}")
-            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_TRIGGER, 1)
+            self.hid_device.write(ec.EV_KEY, ec.BTN_TRIGGER, 1)
             self.hid_device.syn()
             time.sleep(0.05)  # Apparently, a mouse click interval is about 0.05 seconds.
-            self.hid_device.write(evdev.ecodes.EV_KEY, evdev.ecodes.BTN_TRIGGER, 0)
+            self.hid_device.write(ec.EV_KEY, ec.BTN_TRIGGER, 0)
             self.hid_device.syn()
             self.centered = True
             self.center_arrival_time_ns = 0
