@@ -78,24 +78,28 @@ head yaw and pitch in IL-2 BoX.
 
 What I did:
 
-1, Start opentrack-stick (do not use `-q`).
-2. Start opentrack receiving `Output` `UDP over network`
+1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
+2. Start opentrack-stick (do not use `-q`).
+3. Start opentrack receiving `Output` `UDP over network`
    with the port and address from step 1.
-3. Check that the above is working.
-4. Open the opentrack `Mapping` graphs and make every
-   curve dead flat (to silence any noise from the tracking).
-5. Start Steam and IL2 BoX
-6. `Alt-tab` back to opentrack, change the pitch curve
-   so that head movement easily moves between the min
-   and max output values. It's import that it can
-   ramp up and reach the max value (or near to it), if it
-   doesn't ramp up or doesn't get high enough, the game
-   will ignore it.
-7. `Alt-tab` back to the game and set a key mapping for
-   pitch.
-8. Return to opentrack, turn off the pitch by flattening
+4. Check that the above is working.
+5. Open the opentrack `Mapping` graphs and make every
+   curve, except for the pitch, dead flat (to silence any noise
+   from the tracking).
+6. Change the pitch curve so that head movement easily
+   ramps between the min and max output values. It's import
+   that it can ramp up and reach the max value (or near to it),
+   if it doesn't ramp up or doesn't get high enough, the game
+   will ignore it as noise.
+7. Start Steam and IL2 BoX and use the games key mapping
+   menu to map pilot-head pitch to actual head pitch.
+8. Back in opentrack, turn off the pitch by flattening
    its curve, repeat 6 and 7 for yaw.
 9, Return the opentrack curves to a usable normal.
+
+Rather than restarting IL-2 BoX, I used two monitors. I
+used `alt-tab` between monitors displaying the game and the
+opentrack-UI.
 
 In IL-2 BoX it doesn't seem possible to map an axis to side/back
 head movement.  At this time the emulator doesn't have any
