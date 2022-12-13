@@ -14,8 +14,8 @@ Optional Arguments
 
     -w <float>   Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
-    -s <int>     Smooth over n values (default 100)
-    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.1)
+    -s <int>     Smooth over n values (default 250)
+    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -d           Output joystick event x, y, z values to stdout for debugging purposes.
@@ -105,8 +105,6 @@ mappings for axes to hat/button events.
 Setting the smoothing to 0 might help during training (not
 sure).
 
-Mapping the z to camera zoom might be possible.
-
 Instead, in opentrack, change all the mapping
 curves to be dead flat to stop any data making it through.
 
@@ -128,10 +126,11 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
-Opentrack-stick is relatively new and hasn't undergone sufficient
-testing to establish what is required to make it of practical use.
-It has not been tested in a gaming environment, it has only been
-tested in a desktop test rig.
+Only pitch and yaw is implemented at this time.
+
+The smoothing values need more research, as do other smoothing
+methods.  A small alpha (less than 0.1) seems particularly good
+at allowing smooth transitions.
 
 Testing
 =======
