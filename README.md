@@ -36,20 +36,20 @@ See [opentrack-mouse.md](opentrack-mouse.md).
 opentrack-stick - UDP-Output to joystick-events
 ===============================================
 
-Translate opentrack UDP-output to Linux-evdev joystick events.
-
-See [opentrack-stick.md](opentrack-stick.md).
-
-I originally started these experiments with just a mouse-output 
-in mind, the stick output came later. 
+Translate opentrack UDP-output to Linux-evdev joystick events
+emulating a `Microsoft X-Box 360 pad`.
 
 Limitations
 ===========
 
-Opentrack-stick is relatively new and hasn't undergone sufficient
-testing to establish what is required to make it of practical use.
-It has not been tested in a gaming environment, it has only been
-tested in a desktop test rig.
+There needs to be more research into the best settings to 
+achieve a smooth result.
+
+
+See [opentrack-stick.md](opentrack-stick.md).
+
+
+
 
 Author
 ======
