@@ -77,20 +77,22 @@ head yaw and pitch in IL-2 BoX.
 What I did:
 
 1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
-2. Start opentrack-stick (do not use `-q`).
-3. Start opentrack receiving `Output` `UDP over network`
+2. Start opentrack-stick and your head tracker.
+3. Start opentrack sending `Output` `UDP over network`
    with the port and address from step 1.
-4. Check that the above is working.
+4. Check that the above is working (perhaps just run ``opentrack-stick -d``
+   at first to see if logs the events coming from opentrack).
 5. Open the opentrack `Mapping` graphs and make every
-   curve, except for the pitch, dead flat (to silence any noise
-   from the tracking).
+   curve dead flat except for pitch (this silences any
+   noise from other axes).
 6. Change the pitch curve so that head movement easily
-   ramps between the min and max output values. It's import
-   that it can ramp up and reach the max value (or near to it),
-   if it doesn't ramp up or doesn't get high enough, the game
-   will ignore it as noise.
+   moves between the min and max output values. It's import
+   that it ramps up smoothly and reaches the max value (or near
+   to it).  If it doesn't ramp smoothy or doesn't get high
+   enough, the game will ignore it as noise.
 7. Start Steam and IL2 BoX and use the games key mapping
-   menu to map pilot-head pitch to actual head pitch.
+   menu to map pilot-head pitch to actual head pitch by
+   moving your head appropriately.
 8. Back in opentrack, turn off the pitch by flattening
    its curve, repeat 6 and 7 for yaw.
 9, Return the opentrack curves to a usable normal.
@@ -100,23 +102,14 @@ used `alt-tab` between monitors displaying the game and the
 opentrack-UI.
 
 In IL-2 BoX it doesn't seem possible to map an axis to side/back
-head movement.  At this time the emulator doesn't have any
-mappings for axes to hat/button events.
+head movement.  It expects to use the hat or buttons - at this
+time the emulator doesn't have any mappings for opentrack
+axes to hat/button events.
 
-Setting the smoothing to 0 might help during training (not
-sure).
-
-Instead, in opentrack, change all the mapping
-curves to be dead flat to stop any data making it through.
-
-Current training option is of no use
-------------------------------------
-I found the current training `-q` option is of no use in
-IL-2 BoX - I think the game is looking for the ramp up of
-values from middle to high and low.  The current training
-option steps the values from middle to min or max without a
-ramping transition.  So there is no avoiding using `alt-tab`
-and manually altering the curves at this time.
+Setting the smoothing to 0 might help during training. It
+probably won't make a different, but I didn't have smoothing
+implemented when I performed this process, so I can't be
+sure.
 
 Opentrack Protocol
 ==================
