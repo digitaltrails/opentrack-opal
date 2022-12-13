@@ -43,6 +43,7 @@ will pull the stick's trigger when the input-values from
 opentrack remain in the middle zone for the time specified
 by the -t option.
 
+
 Quick Start
 ===========
 
@@ -67,6 +68,52 @@ Now start a game/application that makes use of a joystick;
 in the game/application choose the joystick called `openstack-stick`.
 If the app/game requires you to configure the stick, you may find the
 `-q` training option useful.
+
+
+Game Training Example: IL2 BoX
+==============================
+
+These are the steps I followed to get the controller to work for
+head yaw and pitch in IL-2 BoX.
+
+What I did:
+
+1, Start opentrack-stick (do not use `-q`).
+2. Start opentrack receiving `Output` `UDP over network`
+   with the port and address from step 1.
+3. Check that the above is working.
+4. Open the opentrack `Mapping` graphs and make every
+   curve dead flat (to silence any noise from the tracking).
+5. Start Steam and IL2 BoX
+6. `Alt-tab` back to opentrack, change the pitch curve
+   so that head movement easily moves between the min
+   and max output values. It's import that it can
+   ramp up and reach the max value (or near to it), if it
+   doesn't ramp up or doesn't get high enough, the game
+   will ignore it.
+7. `Alt-tab` back to the game and set a key mapping for
+   pitch.
+8. Return to opentrack, turn off the pitch by flattening
+   its curve, repeat 6 and 7 for yaw.
+9, Return the opentrack curves to a usable normal.
+
+In IL-2 BoX it doesn't seem possible to map an axis to side/back
+head movement.  At this time the emulator doesn't have any
+mappings for axes to hat/button events.
+
+Mapping the z to camera zoom might be possible.
+
+Instead, in opentrack, change all the mapping
+curves to be dead flat to stop any data making it through.
+
+Current training option is of no use
+------------------------------------
+I found the current training `-q` option is of no use in
+IL-2 BoX - I think the game is looking for the ramp up of
+values from middle to high and low.  The current training
+option steps the values from middle to min or max without a
+ramping transition.  So there is no avoiding using `alt-tab`
+and manually altering the curves at this time.
 
 Opentrack Protocol
 ==================
