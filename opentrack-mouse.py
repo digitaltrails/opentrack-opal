@@ -184,7 +184,7 @@ class OpenTrackMouse:
         sock.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,48)
         sock.bind((udp_ip, udp_port))
         sock.setblocking(False)
-        self.current = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        self.current = unpacked_data = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         smoothers = [Smooth(n=self.smoothing, alpha=self.smooth_alpha) for i in range(len(self.current))]
         while True:
             # Use previous data value if none is ready - keeps the mouse moving smoothly in the current direction
@@ -192,10 +192,10 @@ class OpenTrackMouse:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
                 unpacked_data = struct.unpack('<6d', data[0:48])
-                self.current = [smoother.smooth(datum) for datum, smoother in zip(unpacked_data, smoothers)]
-                if self.auto_center > 0.0:
-                    if self.__auto_center__(self.current):
-                        continue  # Don't send the current data, we just centered, moving again might cause a jink
+            self.current = [smoother.smooth(datum) for datum, smoother in zip(unpacked_data, smoothers)]
+            if self.auto_center > 0.0:
+                if self.__auto_center__(self.current):
+                    continue  # Don't send the current data, we just centered, moving again might cause a jink
             # using yaw for mouse-x, pitch for mouse-y, z movement for mouse-z
             _, _, z, yaw, pitch, _ = self.previous
             _, _, zn, yaw_new, pitch_new, _ = self.current

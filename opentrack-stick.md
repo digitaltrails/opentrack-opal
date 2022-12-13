@@ -12,10 +12,10 @@ Usage:
 Optional Arguments
 ------------------
 
-    -a <zone>    Auto-center (press middle mouse button) if all tracking
-                 values are in the -zone..+zone (default 0.0, suggest 5.0)
-    -t <float>   Auto-center required seconds for all values remain in
-                 the zone for this many millis (default 1.0)
+    -w <float>   Wait seconds for input, then interpolate (default 0.001
+                 to simulate a 1000 MHz mouse)
+    -s <int>     Smooth over n values (default 100)
+    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.1)
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -d           Output joystick event x, y, z values to stdout for debugging purposes.
@@ -28,20 +28,18 @@ Description
 opentrack-stick listens for opentrack-output UDP-packets and uses evdev
 to inject them into Linux input subsystem as HID joystick events.
 
+The virtual-stick claims to have the same evdev capabilities as a
+`Microsoft X-Box 360 pad` - but not all of them are functional (just the
+stick axes at this stage)
+
 The evdev joystick events are introduced at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
 from ordinary joystick events.  This means opentrack-stick will work in
 any application, including environments such as Steam Proton.
 
-Auto-centering can be enabled for applications where the center
-may drift from the true-center AND the application supports a
-binding for a re-center command.  Bind the application's re-center
-command to the middle mouse button and enable auto-centering by
-using the opentrack-mouse -a option. When enabled, opentrack-mouse
-will pull the stick's trigger when the input-values from
-opentrack remain in the middle zone for the time specified
-by the -t option.
-
+Opentrack-stick will fill/smooth/interpolate a gap in input by feeding
+the last move back into the smoothing algorithm. This will result in
+the most recent value becoming dominant as time progresses.
 
 Quick Start
 ===========
@@ -64,7 +62,7 @@ Run this script:
 Start opentrack; select Output `UDP over network`; configure the
 output option to IP address 127.0.0.1, port 5005; start tracking.
 Now start a game/application that makes use of a joystick;
-in the game/application choose the joystick called `openstack-stick`.
+in the game/application choose the joystick called `Microsoft X-Box 360 pad 0`.
 If the app/game requires you to configure the stick, you may find the
 `-q` training option useful.
 
@@ -104,6 +102,9 @@ In IL-2 BoX it doesn't seem possible to map an axis to side/back
 head movement.  At this time the emulator doesn't have any
 mappings for axes to hat/button events.
 
+Setting the smoothing to 0 might help during training (not
+sure).
+
 Mapping the z to camera zoom might be possible.
 
 Instead, in opentrack, change all the mapping
@@ -131,11 +132,6 @@ Opentrack-stick is relatively new and hasn't undergone sufficient
 testing to establish what is required to make it of practical use.
 It has not been tested in a gaming environment, it has only been
 tested in a desktop test rig.
-
-Some games support specific models of controller, they may not
-recognise some aspects of the `opentrack-stick` controller.  In
-those cases, you may need to search for ways to define new
-controllers.
 
 Testing
 =======
