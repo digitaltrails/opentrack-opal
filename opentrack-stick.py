@@ -107,7 +107,7 @@ time the emulator doesn't have any mappings for opentrack
 axes to hat/button events.
 
 Setting the smoothing to 0 might help during training. It
-probably won't make a different, but I didn't have smoothing
+probably won't make a difference, but I didn't have smoothing
 implemented when I performed this process, so I can't be
 sure.
 
