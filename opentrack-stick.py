@@ -15,8 +15,8 @@ Optional Arguments
 
     -w <float>   Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
-    -s <int>     Smooth over n values (default 100)
-    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.1)
+    -s <int>     Smooth over n values (default 250)
+    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -d           Output joystick event x, y, z values to stdout for debugging purposes.
@@ -106,8 +106,6 @@ mappings for axes to hat/button events.
 Setting the smoothing to 0 might help during training (not
 sure).
 
-Mapping the z to camera zoom might be possible.
-
 Instead, in opentrack, change all the mapping
 curves to be dead flat to stop any data making it through.
 
@@ -129,10 +127,11 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
-Opentrack-stick is relatively new and hasn't undergone sufficient
-testing to establish what is required to make it of practical use.
-It has not been tested in a gaming environment, it has only been
-tested in a desktop test rig.
+Only pitch and yaw is implemented at this time.
+
+The smoothing values need more research, as do other smoothing
+methods.  A small alpha (less than 0.1) seems particularly good
+at allowing smooth transitions.
 
 Testing
 =======
@@ -208,7 +207,7 @@ class OpenTrackStick:
         self.previous = None
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
-        print(f"Max input wait: {wait_secs / 1000} ms - will used smoothed repeat values.")
+        print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
         print(f"Smoothing: n={self.smoothing} alpha={self.smooth_alpha}")
         self.opentrack_caps = [OpenTrackCap('x', 0, -75, 75),
                                OpenTrackCap('y', 0, -75, 75),
@@ -260,6 +259,7 @@ class OpenTrackStick:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
                 current = struct.unpack('<6d', data[0:48])
+            # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
             current = [smoother.smooth(datum) for datum, smoother in zip(current, smoothers)]
             if current != self.previous:
                 # print(current, self.previous) if debug else False
@@ -323,8 +323,8 @@ def main():
             md.write(__doc__)
         sys.exit(0)
     wait_secs = float(sys.argv[sys.argv.index('-w') + 1]) if '-w' in sys.argv else 0.001
-    smooth_n = int(sys.argv[sys.argv.index('-s') + 1]) if '-s' in sys.argv else 100
-    smooth_alpha = float(sys.argv[sys.argv.index('-q') + 1]) if '-q' in sys.argv else 0.1
+    smooth_n = int(sys.argv[sys.argv.index('-s') + 1]) if '-s' in sys.argv else 250
+    smooth_alpha = float(sys.argv[sys.argv.index('-q') + 1]) if '-q' in sys.argv else 0.05
     stick = OpenTrackStick(wait_secs=wait_secs,
                            smoothing=smooth_n,
                            smooth_alpha=smooth_alpha,

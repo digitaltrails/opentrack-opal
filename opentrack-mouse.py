@@ -192,10 +192,10 @@ class OpenTrackMouse:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
                 unpacked_data = struct.unpack('<6d', data[0:48])
-            self.current = [smoother.smooth(datum) for datum, smoother in zip(unpacked_data, smoothers)]
-            if self.auto_center > 0.0:
-                if self.__auto_center__(self.current):
-                    continue  # Don't send the current data, we just centered, moving again might cause a jink
+                self.current = [smoother.smooth(datum) for datum, smoother in zip(unpacked_data, smoothers)]
+                if self.auto_center > 0.0:
+                    if self.__auto_center__(self.current):
+                        continue  # Don't send the current data, we just centered, moving again might cause a jink
             # using yaw for mouse-x, pitch for mouse-y, z movement for mouse-z
             _, _, z, yaw, pitch, _ = self.previous
             _, _, zn, yaw_new, pitch_new, _ = self.current
