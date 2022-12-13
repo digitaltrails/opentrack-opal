@@ -95,7 +95,7 @@ What I did:
    moving your head appropriately.
 8. Back in opentrack, turn off the pitch by flattening
    its curve, repeat 6 and 7 for yaw.
-9, Return the opentrack curves to a usable normal.
+9. Return the opentrack curves to a usable normal.
 
 Rather than restarting IL-2 BoX, I used two monitors. I
 used `alt-tab` between monitors displaying the game and the
