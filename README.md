@@ -39,17 +39,13 @@ opentrack-stick - UDP-Output to joystick-events
 Translate opentrack UDP-output to Linux-evdev joystick events
 emulating a `Microsoft X-Box 360 pad`.
 
+See [opentrack-stick.md](opentrack-stick.md).
+
 Limitations
 ===========
 
 There needs to be more research into the best settings to 
 achieve a smooth result.
-
-
-See [opentrack-stick.md](opentrack-stick.md).
-
-
-
 
 Author
 ======
