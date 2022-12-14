@@ -17,8 +17,11 @@ Optional Arguments
                  to simulate a 1000 MHz mouse)
     -s <int>     Smooth over n values (default 250)
     -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
+    -H           Send x and y axes as x-hat and y-hat events (instead of x and y
+                 events on the controller's left stick).
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
+    -h           Help
     -d           Output joystick event x, y, z values to stdout for debugging purposes.
     -q           Training: limit each axis to large changes to eliminate other-axis "noise"
                  when mapping an axis within a game.
@@ -32,6 +35,12 @@ to inject them into Linux input subsystem as HID joystick events.
 The virtual-stick claims to have the same evdev capabilities as a
 `Microsoft X-Box 360 pad` - but not all of them are functional (just the
 stick axes at this stage)
+
+The x, y, z, yaw, pitch, and roll opentrack values are sent to the
+left stick x, y, z and right stick x, y, z (Z is actually some kind
+of trigger based axes with a limited range).  The x and u axes may
+optionally be sent as hat events (to get round the limitations of
+some games).
 
 The evdev joystick events are introduced at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
@@ -173,6 +182,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 import datetime
+import math
 import select
 import socket
 import struct
@@ -193,22 +203,24 @@ OpenTrackCap = namedtuple("OpenTrackCap", "name value min max")
 
 class OpenTrackStick:
 
-    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, debug=False):
+    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, xy_to_hat=False, debug=False):
         self.wait_secs = wait_secs
         self.debug = debug
         self.last_time = time.time_ns()
         self.previous = None
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
+        self.xy_to_hat = xy_to_hat
         print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
         print(f"Smoothing: n={self.smoothing} alpha={self.smooth_alpha}")
+        print("Sending x and y to hat") if xy_to_hat else None
         self.opentrack_caps = [OpenTrackCap('x', 0, -75, 75),
                                OpenTrackCap('y', 0, -75, 75),
                                OpenTrackCap('z', 0, -75, 75),
                                OpenTrackCap('yaw', 0, -90, 90),
                                OpenTrackCap('pitch', 0, -90, 90),
                                OpenTrackCap('roll', 0, -90, 90)]
-        self.abs_caps = [
+        self.ev_abs_caps = [
             (ec.ABS_RX, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
             (ec.ABS_RY, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
             (ec.ABS_RZ, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
@@ -233,7 +245,7 @@ class OpenTrackStick:
                         ec.BTN_THUMBL,
                         ec.BTN_THUMBR,
                         ],
-            ec.EV_ABS: self.abs_caps,
+            ec.EV_ABS: self.ev_abs_caps,
             ec.EV_FF: [ec.FF_EFFECT_MIN, ec.FF_RUMBLE]
         }
         self.hid_device = evdev.UInput(capabilities, name="Microsoft X-Box 360 pad 0")
@@ -251,7 +263,7 @@ class OpenTrackStick:
             if select.select([sock], [], [], self.wait_secs)[0]:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
-                current = struct.unpack('<6d', data[0:48])
+                current = struct.unpack('<6d', data[:48])
             # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
             current = [smoother.smooth(datum) for datum, smoother in zip(current, smoothers)]
             if current != self.previous:
@@ -260,13 +272,27 @@ class OpenTrackStick:
                 self.__send_to_hid__(current)
 
     def __send_to_hid__(self, values):
-        for cap, value, ot_info in zip(self.abs_caps[:6], values, self.opentrack_caps):
+        consumed_xy = 0
+        values = []
+        if self.xy_to_hat:
+            for cap, int_value in zip(self.ev_abs_caps[-2:], [round(v) for v in values[:2]]):
+                # hat value should be -1, 0, or 1.
+                hat_value = 0 if int_value == 0 else int_value // abs(int_value)
+                if self.debug:
+                    print(f"{datetime.datetime.now()}:hat-{'x' if cap[0] == evdev.ecodes.ABS_HAT0X else 'y'}"
+                          f" received-value={int_value} sending {hat_value}")
+                self.hid_device.write(ec.EV_ABS, cap[0], hat_value)
+                consumed_xy = 2
+                values.append(hat_value)
+        for cap, value, ot_info in zip(self.ev_abs_caps[consumed_xy:6], values, self.opentrack_caps[consumed_xy:6]):
             ev_info = cap[1]
             scaled = ev_info.min + round(((value - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
-            if self.debug:
+            if False and self.debug:
                 print(f"{datetime.datetime.now()}: {ot_info.name} received-value={value} device-scaled-value={scaled}")
             self.hid_device.write(ec.EV_ABS, cap[0], scaled)
+            values.append(scaled)
         self.hid_device.syn()
+        return values
 
 
 class Smooth:
@@ -321,6 +347,7 @@ def main():
     stick = OpenTrackStick(wait_secs=wait_secs,
                            smoothing=smooth_n,
                            smooth_alpha=smooth_alpha,
+                           xy_to_hat='-H' in sys.argv,
                            debug='-d' in sys.argv)
     udp_ip = sys.argv[sys.argv.index('-i') + 1] if '-i' in sys.argv else UDP_IP
     udp_port = sys.argv[sys.argv.index('-p') + 1] if '-p' in sys.argv else UDP_PORT
