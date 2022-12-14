@@ -203,7 +203,7 @@ OpenTrackCap = namedtuple("OpenTrackCap", "name value min max")
 
 class OpenTrackStick:
 
-    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, xy_to_hat=False, debug=False):
+    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, xy_to_hat=False, only_axis=None, debug=False):
         self.wait_secs = wait_secs
         self.debug = debug
         self.last_time = time.time_ns()
@@ -211,6 +211,8 @@ class OpenTrackStick:
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
         self.xy_to_hat = xy_to_hat
+        self.only_axis = only_axis
+        self.hat_values = (HatValue("x"), HatValue("y"))
         print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
         print(f"Smoothing: n={self.smoothing} alpha={self.smooth_alpha}")
         print("Sending x and y to hat") if xy_to_hat else None
@@ -255,44 +257,60 @@ class OpenTrackStick:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 48)
         sock.bind((udp_ip, udp_port))
-        sock.setblocking(False)
+        data_exhausted = True
         current = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
         smoothers = [Smooth(n=self.smoothing, alpha=self.smooth_alpha) for i in range(len(current))]
         while True:
+            sock.setblocking(data_exhausted)
             # Use previous data value if none is ready - keeps the mouse moving smoothly in the current direction
-            if select.select([sock], [], [], self.wait_secs)[0]:
+            if data_exhausted or select.select([sock], [], [], self.wait_secs)[0]:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
                 current = struct.unpack('<6d', data[:48])
             # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
             current = [smoother.smooth(datum) for datum, smoother in zip(current, smoothers)]
-            if current != self.previous:
-                # print(current, self.previous) if debug else False
+            # Stop and wait if the smoothed data has settled down and is not changing.
+            # Note: smoothing will keep changing it for a while even though input may have stopped arriving.
+            data_exhausted = current == self.previous
+            if not data_exhausted:
                 self.previous = current
                 self.__send_to_hid__(current)
 
     def __send_to_hid__(self, values):
-        consumed_xy = 0
-        values = []
+        data_remaining = 0
         if self.xy_to_hat:
-            for cap, int_value in zip(self.ev_abs_caps[-2:], [round(v) for v in values[:2]]):
+            for cap, hat_value, value in zip(self.ev_abs_caps[-2:], self.hat_values, values[:2]):
                 # hat value should be -1, 0, or 1.
-                hat_value = 0 if int_value == 0 else int_value // abs(int_value)
+                output_value = hat_value.update(value)
                 if self.debug:
-                    print(f"{datetime.datetime.now()}:hat-{'x' if cap[0] == evdev.ecodes.ABS_HAT0X else 'y'}"
-                          f" received-value={int_value} sending {hat_value}")
-                self.hid_device.write(ec.EV_ABS, cap[0], hat_value)
-                consumed_xy = 2
-                values.append(hat_value)
-        for cap, value, ot_info in zip(self.ev_abs_caps[consumed_xy:6], values, self.opentrack_caps[consumed_xy:6]):
+                    print(f"{datetime.datetime.now()}: hat-{hat_value.name}"
+                          f" received-value={value} sending {output_value}")
+                self.hid_device.write(ec.EV_ABS, cap[0], output_value)
+                data_remaining = 2
+        for cap, value, ot_info in zip(self.ev_abs_caps[data_remaining:6], values, self.opentrack_caps[data_remaining:6]):
             ev_info = cap[1]
             scaled = ev_info.min + round(((value - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
-            if False and self.debug:
+            if self.debug:
                 print(f"{datetime.datetime.now()}: {ot_info.name} received-value={value} device-scaled-value={scaled}")
+            if self.only_axis:
+                scaled = [v if i == self.only_axis else 0 for i, v in enumerate(scaled)]
             self.hid_device.write(ec.EV_ABS, cap[0], scaled)
-            values.append(scaled)
         self.hid_device.syn()
         return values
+
+
+class HatValue:
+
+    def __init__(self, name):
+        self.name = name
+        self.previous_raw_value = 0.0
+
+    def update(self, raw_value):
+        try:
+            dif = round(raw_value - self.previous_raw_value)
+            return 0 if dif == 0 else dif // abs(dif)
+        finally:
+            self.previous_raw_value = raw_value
 
 
 class Smooth:
@@ -344,10 +362,12 @@ def main():
     wait_secs = float(sys.argv[sys.argv.index('-w') + 1]) if '-w' in sys.argv else 0.001
     smooth_n = int(sys.argv[sys.argv.index('-s') + 1]) if '-s' in sys.argv else 250
     smooth_alpha = float(sys.argv[sys.argv.index('-q') + 1]) if '-q' in sys.argv else 0.05
+    only_axis = int(sys.argv[sys.argv.index('-o') + 1]) if '-o' in sys.argv else None
     stick = OpenTrackStick(wait_secs=wait_secs,
                            smoothing=smooth_n,
                            smooth_alpha=smooth_alpha,
                            xy_to_hat='-H' in sys.argv,
+                           only_axis=only_axis,
                            debug='-d' in sys.argv)
     udp_ip = sys.argv[sys.argv.index('-i') + 1] if '-i' in sys.argv else UDP_IP
     udp_port = sys.argv[sys.argv.index('-p') + 1] if '-p' in sys.argv else UDP_PORT
