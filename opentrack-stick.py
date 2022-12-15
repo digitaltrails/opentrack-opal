@@ -8,7 +8,7 @@ Translate opentrack UDP-output to Linux-HID joystick events.
 Usage:
 ======
 
-    python3 opentrack-stick.py [-d] [-q]
+    python3 opentrack-stick.py [-h] [-s <int>] [-a <float>] [-b <csv>] [-i ip-addr] [-o <port>] [-d]
 
 Optional Arguments
 ------------------
@@ -16,15 +16,13 @@ Optional Arguments
     -w <float>   Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
     -s <int>     Smooth over n values (default 250)
-    -q <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
-    -H           Send x and y axes as x-hat and y-hat events (instead of x and y
-                 events on the controller's left stick).
+    -a <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
+    -b <csv>     Bindings for opentrack-axis to virtual-control-number, must be 6 integers
+                 (default 1,2,3,4,5,6)
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -h           Help
-    -d           Output joystick event x, y, z values to stdout for debugging purposes.
-    -q           Training: limit each axis to large changes to eliminate other-axis "noise"
-                 when mapping an axis within a game.
+    -d           Output joystick event values to stdout for debugging purposes.
 
 Description
 ===========
@@ -36,13 +34,12 @@ The virtual-stick claims to have the same evdev capabilities as a
 `Microsoft X-Box 360 pad` - but not all of them are functional (just the
 stick axes at this stage)
 
-The x, y, z, yaw, pitch, and roll opentrack values are sent to the
-left stick x, y, z and right stick x, y, z (Z is actually some kind
-of trigger based axes with a limited range).  The x and u axes may
-optionally be sent as hat events (to get round the limitations of
-some games).
+By default, the x, y, z, yaw, pitch, and roll opentrack values are sent
+to the virtual controller's left stick x, y, z and right stick x, y, z
+(z is some kind of trigger based axes with a limited range, and
+not recognised by some games).
 
-The evdev joystick events are introduced at the HID device level and are
+The evdev joystick events are injected at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
 from ordinary joystick events.  This means opentrack-stick will work in
 any application, including environments such as Steam Proton.
@@ -50,6 +47,35 @@ any application, including environments such as Steam Proton.
 Opentrack-stick will fill/smooth/interpolate a gap in input by feeding
 the last move back into the smoothing algorithm. This will result in
 the most recent value becoming dominant as time progresses.
+
+Re-Mapping axis assignments
+===========================
+
+The binding of the virtual-controls to opentrack-track control can
+be changed by using the `-b` option.
+
+Opentrack controls in mapping order: x, y, z, yaw, pitch, roll.
+
+A mapping specification allocates a numbered virtual control to each
+opentrack axes in the mapping order: x, y, z, yaw, pitch, roll.
+
+Virtual control numbers
+-----------------------
+
+0. no-control
+1. left-stick, x-axis
+2. left-stick, y-axis
+3. left-stick, z-axis (some games don't recognise this axis)
+4. right-stick x-axis
+5. right-stick y-axis
+6. right-stick z-axis (some games don't recognise this axis)
+7. hat-x (some games don't recognise this control)
+8. hat-y (some games don't recognise this control)
+
+For example: `-b 0,0,1,4,5,0` binds opentrack-x to nothing,
+opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
+to control-4, opentrack-pitch to control-5 to, and opentrack-roll
+to nothing.
 
 Quick Start
 ===========
@@ -73,8 +99,6 @@ Start opentrack; select Output `UDP over network`; configure the
 output option to IP address 127.0.0.1, port 5005; start tracking.
 Now start a game/application that makes use of a joystick;
 in the game/application choose the joystick called `Microsoft X-Box 360 pad 0`.
-If the app/game requires you to configure the stick, you may find the
-`-q` training option useful.
 
 
 Game Training Example: IL2 BoX
@@ -85,16 +109,19 @@ head yaw and pitch in IL-2 BoX.
 
 What I did:
 
+I mapped opentrack head-z, head-yaw, head-pitch, and  to
+virtual-control-1, virtual-control-4, and virtual-control-5,
+that corresponds to `-b 0,0,1,4,5,0`.
+
 1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
-2. Start opentrack-stick and your head tracker.
+2. Start opentrack-stick with only one axis mapped. For example
+   yaw to  virtual-control-4, pass -b 0,0,0,4,0,0..
 3. Start opentrack sending `Output` `UDP over network`
    with the port and address from step 1.
-4. Check that the above is working (perhaps just run ``opentrack-stick -d``
-   at first to see if logs the events coming from opentrack).
-5. Open the opentrack `Mapping` graphs and make every
-   curve dead flat except for pitch (this silences any
-   noise from other axes).
-6. Change the pitch curve so that head movement easily
+4. Check that the above is working (perhaps just run
+   ``opentrack-stick -d`` at first to see if logs the events
+   coming from opentrack).
+6. Change the target curve so that head movement easily
    moves between the min and max output values. It's import
    that it ramps up smoothly and reaches the max value (or near
    to it).  If it doesn't ramp smoothy or doesn't get high
@@ -102,23 +129,25 @@ What I did:
 7. Start Steam and IL2 BoX and use the games key mapping
    menu to map pilot-head pitch to actual head pitch by
    moving your head appropriately.
-8. Back in opentrack, turn off the pitch by flattening
-   its curve, repeat 6 and 7 for yaw.
-9. Return the opentrack curves to a usable normal.
+8. Repeat for next target mapping.
 
-Rather than restarting IL-2 BoX, I used two monitors. I
-used `alt-tab` between monitors displaying the game and the
-opentrack-UI.
+Rather than restarting IL-2 BoX to perform each mapping,
+I used two monitors. I used `alt-tab` between monitors
+displaying the game and an xterm. Without restarting
+IL-BoX or opentrack, I switched to the xterm,
+interrupted (control-C) opentrack-stick, then started a
+new opentrack-stick with the next `-b` value, for
+example `opentrack-stick -b 0,0,0,5,0` to map opentrack-pitch
+to virtual-control-5.
 
-In IL-2 BoX it doesn't seem possible to map an axis to side/back
-head movement.  It expects to use the hat or buttons - at this
-time the emulator doesn't have any mappings for opentrack
-axes to hat/button events.
+IL-2 BoX appears to ignore the virtual-controller's two Z axes,
+virtual-control-3 and virtual-control-6. So they can't be used.
 
-Setting the smoothing to 0 might help during training. It
-probably won't make a difference, but I didn't have smoothing
-implemented when I performed this process, so I can't be
-sure.
+Having setup head yaw and pitch, I had no success in assigning
+head movement (x, y, z).  Unlike head-movement, I did find
+it possible to assign an axis to head-zoom, so I assigned
+opentrack-z to virtual control-1.
+
 
 Opentrack Protocol
 ==================
@@ -193,64 +222,70 @@ from pathlib import Path
 
 import evdev
 from evdev import AbsInfo
-from evdev import ecodes as ec
+from evdev import ecodes
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
-OpenTrackCap = namedtuple("OpenTrackCap", "name value min max")
+OpenTrackDataItem = namedtuple("OpenTrackDataItem", "name value min max")
 
 
 class OpenTrackStick:
 
-    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, xy_to_hat=False, only_axis=None, debug=False):
+    def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, bindings=(1, 2, 3, 4, 5, 6), debug=False):
         self.wait_secs = wait_secs
         self.debug = debug
         self.last_time = time.time_ns()
-        self.previous = None
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
-        self.xy_to_hat = xy_to_hat
-        self.only_axis = only_axis
-        self.hat_values = (HatValue("x"), HatValue("y"))
         print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
         print(f"Smoothing: n={self.smoothing} alpha={self.smooth_alpha}")
-        print("Sending x and y to hat") if xy_to_hat else None
-        self.opentrack_caps = [OpenTrackCap('x', 0, -75, 75),
-                               OpenTrackCap('y', 0, -75, 75),
-                               OpenTrackCap('z', 0, -75, 75),
-                               OpenTrackCap('yaw', 0, -90, 90),
-                               OpenTrackCap('pitch', 0, -90, 90),
-                               OpenTrackCap('roll', 0, -90, 90)]
-        self.ev_abs_caps = [
-            (ec.ABS_RX, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
-            (ec.ABS_RY, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
-            (ec.ABS_RZ, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
-            (ec.ABS_X, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
-            (ec.ABS_Y, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0)),
-            (ec.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
-            (ec.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
-            (ec.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
-        ]
+        self.opentrack_data_items = [OpenTrackDataItem('x', 0, -75, 75),
+                                     OpenTrackDataItem('y', 0, -75, 75),
+                                     OpenTrackDataItem('z', 0, -75, 75),
+                                     OpenTrackDataItem('yaw', 0, -90, 90),
+                                     OpenTrackDataItem('pitch', 0, -90, 90),
+                                     OpenTrackDataItem('roll', 0, -90, 90)]
+        self.abs_outputs_defs = [
+            StickOutputDef(ecodes.ABS_RX, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0),
+                           smoothing=smoothing, smooth_alpha=smooth_alpha),
+            StickOutputDef(ecodes.ABS_RY, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0),
+                           smoothing=smoothing, smooth_alpha=smooth_alpha),
+            StickOutputDef(ecodes.ABS_RZ, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0),
+                           smoothing=smoothing, smooth_alpha=smooth_alpha),
+            StickOutputDef(ecodes.ABS_X, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0),
+                           smoothing=smoothing, smooth_alpha=smooth_alpha),
+            StickOutputDef(ecodes.ABS_Y, AbsInfo(value=0, min=-32767, max=32767, fuzz=16, flat=128, resolution=0),
+                           smoothing=smoothing, smooth_alpha=smooth_alpha),
+            StickOutputDef(ecodes.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
+            HatOutputDef(ecodes.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
+            HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),]
+        print(f"Opentrack inputs:", ", ".join([otd.name for otd in self.opentrack_data_items]))
+        print("Current outputs destinations: ", ','.join(str(i) for i in bindings))
+        print(f"Possible output destinations: ",
+              ", ".join([f"{i + 1}={d.name}" for i, d in enumerate(self.abs_outputs_defs)] + ["0=discard"]))
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
-        capabilities = {
-            ec.EV_KEY: [ec.BTN_A, ec.BTN_GAMEPAD, ec.BTN_SOUTH, ec.BTN_B,
-                        ec.BTN_A, ec.BTN_GAMEPAD, ec.BTN_SOUTH,
-                        ec.BTN_B, ec.BTN_EAST,
-                        ec.BTN_NORTH, ec.BTN_X,
-                        ec.BTN_WEST, ec.BTN_Y,
-                        ec.BTN_TL,
-                        ec.BTN_TR,
-                        ec.BTN_SELECT,
-                        ec.BTN_START,
-                        ec.BTN_MODE,
-                        ec.BTN_THUMBL,
-                        ec.BTN_THUMBR,
-                        ],
-            ec.EV_ABS: self.ev_abs_caps,
-            ec.EV_FF: [ec.FF_EFFECT_MIN, ec.FF_RUMBLE]
+        ui_input_capabilities = {
+            ecodes.EV_KEY: [ecodes.BTN_A, ecodes.BTN_GAMEPAD, ecodes.BTN_SOUTH,
+                            ecodes.BTN_B, ecodes.BTN_EAST, ecodes.BTN_NORTH, ecodes.BTN_X,
+                            ecodes.BTN_WEST, ecodes.BTN_Y, ecodes.BTN_TL, ecodes.BTN_TR,
+                            ecodes.BTN_SELECT, ecodes.BTN_START, ecodes.BTN_MODE, ecodes.BTN_THUMBL, ecodes.BTN_THUMBR,
+                            ],
+            ecodes.EV_ABS: [(output_def.evdev_code, output_def.evdev_abs_info) for output_def in self.abs_outputs_defs],
+            ecodes.EV_FF: [ecodes.FF_EFFECT_MIN, ecodes.FF_RUMBLE]
         }
-        self.hid_device = evdev.UInput(capabilities, name="Microsoft X-Box 360 pad 0")
+        self.hid_device = evdev.UInput(ui_input_capabilities, name="Microsoft X-Box 360 pad 0")
+        self.destination_list = []
+        for destination_num, opentrack_cap in zip(bindings, self.opentrack_data_items):
+            if destination_num == 0:
+                self.destination_list.append(None)
+                print(f"Binding opentrack {opentrack_cap.name} to discard")
+            else:
+                index = destination_num - 1
+                self.abs_outputs_defs[index].bind(opentrack_cap)
+                destination = self.abs_outputs_defs[index]
+                self.destination_list.append(destination)
+                print(f"Binding opentrack {opentrack_cap.name} to {destination.name}")
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -259,7 +294,6 @@ class OpenTrackStick:
         sock.bind((udp_ip, udp_port))
         data_exhausted = True
         current = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-        smoothers = [Smooth(n=self.smoothing, alpha=self.smooth_alpha) for i in range(len(current))]
         while True:
             sock.setblocking(data_exhausted)
             # Use previous data value if none is ready - keeps the mouse moving smoothly in the current direction
@@ -267,50 +301,79 @@ class OpenTrackStick:
                 data, _ = sock.recvfrom(48)
                 # Unpack 6 little endian doubles into a list:
                 current = struct.unpack('<6d', data[:48])
-            # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
-            current = [smoother.smooth(datum) for datum, smoother in zip(current, smoothers)]
-            # Stop and wait if the smoothed data has settled down and is not changing.
-            # Note: smoothing will keep changing it for a while even though input may have stopped arriving.
-            data_exhausted = current == self.previous
+                data_exhausted = False
+            # Stop and wait if the data has settled down and is not changing.
+            # Note: smoothing will keep changing the data for a while even though input may have stopped arriving.
             if not data_exhausted:
-                self.previous = current
-                self.__send_to_hid__(current)
+                data_exhausted = self.__send_to_hid__(current)
+            if self.debug and data_exhausted:
+                print("waiting for new data")
 
     def __send_to_hid__(self, values):
-        data_remaining = 0
-        if self.xy_to_hat:
-            for cap, hat_value, value in zip(self.ev_abs_caps[-2:], self.hat_values, values[:2]):
-                # hat value should be -1, 0, or 1.
-                output_value = hat_value.update(value)
+        debug = []
+        data_exhausted = True
+        for destination_def, raw_value in zip(self.destination_list, values):
+            if destination_def:
+                cooked_value = destination_def.cooked_value(raw_value)
+                data_exhausted &= destination_def.send_to_hid(self.hid_device, cooked_value)
                 if self.debug:
-                    print(f"{datetime.datetime.now()}: hat-{hat_value.name}"
-                          f" received-value={value} sending {output_value}")
-                self.hid_device.write(ec.EV_ABS, cap[0], output_value)
-                data_remaining = 2
-        for cap, value, ot_info in zip(self.ev_abs_caps[data_remaining:6], values, self.opentrack_caps[data_remaining:6]):
-            ev_info = cap[1]
-            scaled = ev_info.min + round(((value - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
-            if self.debug:
-                print(f"{datetime.datetime.now()}: {ot_info.name} received-value={value} device-scaled-value={scaled}")
-            if self.only_axis:
-                scaled = [v if i == self.only_axis else 0 for i, v in enumerate(scaled)]
-            self.hid_device.write(ec.EV_ABS, cap[0], scaled)
+                    debug.append(f"{destination_def.name}={cooked_value} (raw={raw_value})")
+        if debug:
+            print(",".join(debug))
         self.hid_device.syn()
-        return values
+        return data_exhausted
 
 
-class HatValue:
+class AbsOutputDef:
+    def __init__(self, evdev_code, evdev_abs_info):
+        self.evdev_type = ecodes.EV_ABS
+        self.evdev_code = evdev_code
+        self.evdev_abs_info = evdev_abs_info
+        self.opentrack_info = None
+        self.name = ecodes.ABS[self.evdev_code]
+        self.data_exhausted = True
 
-    def __init__(self, name):
-        self.name = name
-        self.previous_raw_value = 0.0
+    def bind(self, opentrack_info):
+        self.opentrack_info = opentrack_info
 
-    def update(self, raw_value):
-        try:
-            dif = round(raw_value - self.previous_raw_value)
-            return 0 if dif == 0 else dif // abs(dif)
-        finally:
-            self.previous_raw_value = raw_value
+    def cooked_value(self, raw_value):
+        pass
+
+    def name(self):
+        return self.opentrack_info('name')
+
+    def evdev_code(self):
+        return self.ev_info[0]
+
+    def send_to_hid(self, hid_device, cooked_value):
+        hid_device.write(ecodes.EV_ABS, self.evdev_code, cooked_value)
+        return self.data_exhausted
+
+
+class StickOutputDef(AbsOutputDef):
+
+    def __init__(self, evdev_code, evdev_abs_info, smoothing=500, smooth_alpha=0.1):
+        super().__init__(evdev_code, evdev_abs_info)
+        self.previous_smoothed_value = 0.0
+        self.smoother = Smooth(n=smoothing, alpha=smooth_alpha)
+
+    def cooked_value(self, raw_value):
+        ev_info = self.evdev_abs_info
+        ot_info = self.opentrack_info
+        # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
+        smoothed = self.smoother.smooth(raw_value)
+        self.data_exhausted = math.isclose(smoothed, self.previous_smoothed_value, abs_tol=0.1)
+        self.previous_smoothed_value = smoothed
+        scaled = ev_info.min + round(((smoothed - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
+        return scaled
+
+
+class HatOutputDef(AbsOutputDef):
+
+    def cooked_value(self, raw_value):
+        # dif = round(raw_value - self.previous_raw_value)
+        dif = round(raw_value)
+        return 0 if dif == 0 else -dif // abs(dif)
 
 
 class Smooth:
@@ -362,12 +425,11 @@ def main():
     wait_secs = float(sys.argv[sys.argv.index('-w') + 1]) if '-w' in sys.argv else 0.001
     smooth_n = int(sys.argv[sys.argv.index('-s') + 1]) if '-s' in sys.argv else 250
     smooth_alpha = float(sys.argv[sys.argv.index('-q') + 1]) if '-q' in sys.argv else 0.05
-    only_axis = int(sys.argv[sys.argv.index('-o') + 1]) if '-o' in sys.argv else None
+    destinations = [int(c) for c in (sys.argv[sys.argv.index('-b') + 1] if '-b' in sys.argv else "1,2,3,4,5,6").split(',')]
     stick = OpenTrackStick(wait_secs=wait_secs,
                            smoothing=smooth_n,
                            smooth_alpha=smooth_alpha,
-                           xy_to_hat='-H' in sys.argv,
-                           only_axis=only_axis,
+                           bindings=destinations,
                            debug='-d' in sys.argv)
     udp_ip = sys.argv[sys.argv.index('-i') + 1] if '-i' in sys.argv else UDP_IP
     udp_port = sys.argv[sys.argv.index('-p') + 1] if '-p' in sys.argv else UDP_PORT
