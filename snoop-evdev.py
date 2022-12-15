@@ -8,7 +8,12 @@ Lists the device capabilities and events
 Usage:
 ======
 
-    python3 snoop-evdev.py /dev/input/event<N>
+    python3 snoop-evdev.py [-c] /dev/input/event<N>
+
+Optional Arguments
+------------------
+
+    -c           List capabilities and exit
 
 Credits
 =======
@@ -18,12 +23,13 @@ Based on https://python-evdev.readthedocs.io/en/latest/tutorial.html
 import sys
 import time
 
-from evdev import InputDevice, categorize, ecodes
+from evdev import InputDevice, categorize, ecodes, resolve_ecodes
+
 
 def main():
 
     dev = InputDevice(sys.argv[-1])
-
+    print(ecodes.BTN[ecodes.BTN_MIDDLE])
     print(dev)
     print("Begin capabilities")
     for key, item in dev.capabilities(verbose=True).items():

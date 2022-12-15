@@ -65,12 +65,14 @@ Virtual control numbers
 0. no-control
 1. left-stick, x-axis
 2. left-stick, y-axis
-3. left-stick, z-axis (some games don't recognise this axis)
+3. left-stick, z-axis (possibly not functioning)
 4. right-stick x-axis
 5. right-stick y-axis
-6. right-stick z-axis (some games don't recognise this axis)
-7. hat-x (some games don't recognise this control)
-8. hat-y (some games don't recognise this control)
+6. right-stick z-axis (possibly not functioning)
+7. hat-x (possibly not functioning)
+8. hat-y (possibly not functioning)
+9. btn_thumb/btn_thumb2 button minus/plus pairing (possibly not functioning)
+10. btn_top/btn_top2 button minus/plus pairing (possibly not functioning)
 
 For example: `-b 0,0,1,4,5,0` binds opentrack-x to nothing,
 opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
@@ -261,12 +263,18 @@ class OpenTrackStick:
             StickOutputDef(ecodes.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
             HatOutputDef(ecodes.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
             HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)), ]
+        self.btn_output_defs = [
+            BtnPairOutputDef(ecodes.BTN_JOYSTICK, ecodes.BTN_BASE),
+            BtnPairOutputDef(ecodes.BTN_THUMB, ecodes.BTN_THUMB2),
+            BtnPairOutputDef(ecodes.BTN_TOP, ecodes.BTN_TOP2), ]
+        self.all_output_defs = self.abs_outputs_defs + self.btn_output_defs
         print(f"Opentrack inputs:", ",".join([otd.name for otd in self.opentrack_data_items]))
         print(f"Available outputs: ",
-              ",".join([f"{i + 1}={d.name}" for i, d in enumerate(self.abs_outputs_defs)] + ["0=discard"]))
+              ",".join([f"{i + 1}={d.name}" for i, d in enumerate(self.all_output_defs)] + ["0=discard"]))
         print("Bound outputs: -b {} => ({})".format(
             ','.join(str(i) for i in bindings),
-            ','.join((f"{ot.name}->discard" if i == 0 else f"{ot.name}->{self.abs_outputs_defs[i - 1].name}") for i, ot in zip(bindings, self.opentrack_data_items))))
+            ','.join((f"{ot.name}->discard" if i == 0 else f"{ot.name}->{self.all_output_defs[i - 1].name}") for i, ot in
+                     zip(bindings, self.opentrack_data_items))))
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
         ui_input_capabilities = {
             ecodes.EV_KEY: [ecodes.BTN_A, ecodes.BTN_GAMEPAD, ecodes.BTN_SOUTH,
@@ -285,8 +293,8 @@ class OpenTrackStick:
                 print(f"Binding opentrack {opentrack_cap.name} to discard output")
             else:
                 index = destination_num - 1
-                self.abs_outputs_defs[index].bind(opentrack_cap)
-                destination = self.abs_outputs_defs[index]
+                destination = self.all_output_defs[index]
+                destination.bind(opentrack_cap)
                 self.destination_list.append(destination)
                 print(f"Binding opentrack {opentrack_cap.name} to {destination.name} output")
 
@@ -310,29 +318,37 @@ class OpenTrackStick:
             if not data_exhausted:
                 data_exhausted = self.__send_to_hid__(current)
             if self.debug and data_exhausted:
-                print(f"waiting for new data @{(time.time_ns() - self.start_time) / 1_000_000_000:.3f} sec")
+                print(f"@{(time.time_ns() - self.start_time) / 1_000_000_000:.3f} sec waiting for new data...", )
+
+    def all_output_defs(self):
+        return self.abs_outputs_defs + self.btn_output_defs
 
     def __send_to_hid__(self, values):
         data_exhausted = True
         send_t = time.time_ns() if self.debug else 0
+        sent_any = True
+        debug_msg = []
         for destination_def, raw_value in zip(self.destination_list, values):
             if destination_def:
-                data_exhausted &= destination_def.send_to_hid(self.hid_device, raw_value, debug=self.debug)
-        if self.debug:
-            now = time.time_ns()
-            print(f" {(now - send_t) / 1_000_000:.2f} ms, @{(now - self.start_time) / 1_000_000_000:.3f} sec, "
-                  f"data_exhausted={data_exhausted}")
-        self.hid_device.syn()
+                cooked_value = destination_def.cooked_value(raw_value)
+                data_exhausted &= destination_def.data_exhausted
+                sent_any |= destination_def.send_to_hid(self.hid_device, cooked_value)
+                debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug else None
+        if sent_any:
+            self.hid_device.syn()
+            if self.debug:
+                now = time.time_ns()
+                print(f"@{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
+                      f"data_exhausted={data_exhausted}", ", ".join(debug_msg))
         return data_exhausted
 
 
-class AbsOutputDef:
-    def __init__(self, evdev_code, evdev_abs_info):
-        self.evdev_type = ecodes.EV_ABS
+class OutputDef:
+    def __init__(self, evdev_type, evdev_code, evdev_name):
+        self.evdev_type = evdev_type
         self.evdev_code = evdev_code
-        self.evdev_abs_info = evdev_abs_info
         self.opentrack_info = None
-        self.name = ecodes.ABS[self.evdev_code]
+        self.name = evdev_name
         self.data_exhausted = True
 
     def bind(self, opentrack_info):
@@ -341,23 +357,21 @@ class AbsOutputDef:
     def cooked_value(self, raw_value):
         pass
 
-    def name(self):
-        return self.opentrack_info('name')
+    def send_to_hid(self, hid_device, cooked_value):
+        if cooked_value is not None:
+            hid_device.write(self.evdev_type, self.evdev_code, cooked_value)
+            return True
+        return False
 
-    def evdev_code(self):
-        return self.ev_info[0]
-
-    def send_to_hid(self, hid_device, raw_value, debug=False):
-        value = self.cooked_value(raw_value)
-        hid_device.write(ecodes.EV_ABS, self.evdev_code, value)
-        print(f"{self.name}->{value} ({raw_value:.4})", end=',') if debug else None
-        return self.data_exhausted
+    def debug_value(self, raw_value, value):
+        return f"{self.name}->{value} ({self.opentrack_info.name}={raw_value:.4})"
 
 
-class StickOutputDef(AbsOutputDef):
+class StickOutputDef(OutputDef):
 
     def __init__(self, evdev_code, evdev_abs_info, smoothing=500, smooth_alpha=0.1):
-        super().__init__(evdev_code, evdev_abs_info)
+        super().__init__(ecodes.EV_ABS, evdev_code, ecodes.ABS[evdev_code])
+        self.evdev_abs_info = evdev_abs_info
         self.previous_smoothed_value = 0.0
         self.smoother = Smooth(n=smoothing, alpha=smooth_alpha)
 
@@ -371,19 +385,51 @@ class StickOutputDef(AbsOutputDef):
         scaled = ev_info.min + round(((smoothed - ot_info.min) / (ot_info.max - ot_info.min)) * (ev_info.max - ev_info.min))
         return scaled
 
+    def send_to_hid(self, hid_device, cooked_value):
+        hid_device.write(self.evdev_type, self.evdev_code, cooked_value)
+        return True
 
-class HatOutputDef(AbsOutputDef):
+
+class HatOutputDef(OutputDef):
+
+    def __init__(self, evdev_code, evdev_abs_info):
+        super().__init__(ecodes.EV_ABS, evdev_code, ecodes.ABS[evdev_code])
+        self.evdev_abs_info = evdev_abs_info
 
     def cooked_value(self, raw_value):
         # dif = round(raw_value - self.previous_raw_value)
         dif = round(raw_value)
-        return 0 if dif == 0 else -dif // abs(dif)
+        return 0 if dif == 0 else dif // abs(dif)
 
-    def send_to_hid(self, hid_device, raw_value, debug=False):
-        try:
-            return super.send_to_hid(hid_device, raw_value, debug)
-        finally:
-            time.sleep(0.150)
+
+class BtnPairOutputDef(OutputDef):
+
+    def __init__(self, evdev_code_minus, evdev_code_plus):
+        super().__init__(ecodes.EV_KEY, evdev_code_minus, f"{ecodes.BTN[evdev_code_minus]}/{ecodes.BTN[evdev_code_plus]}")
+        self.name_minus = ecodes.BTN[evdev_code_minus]
+        self.name_plus = ecodes.BTN[evdev_code_plus]
+        self.evdev_code_minus = self.evdev_code
+        self.evdev_code_plus = evdev_code_plus
+
+    def cooked_value(self, raw_value):
+        if raw_value is None or math.isclose(raw_value, 0.0):
+            return None
+        if raw_value > 0:
+            self.evdev_code = self.evdev_code_plus
+        else:
+            self.evdev_code = self.evdev_code_minus
+        return 1
+
+    def debug_value(self, raw_value, value):
+        if value == 1:
+            if raw_value > 0:
+                name = self.name_plus
+            else:
+                name = self.name_minus
+        else:
+            name = "neither"
+        # print(name, self.name_minus, self.name_plus, ecodes.BTN[self.evdev_code])
+        return f"{self.name}->{name} {value} ({self.opentrack_info.name}={raw_value})"
 
 
 class Smooth:
