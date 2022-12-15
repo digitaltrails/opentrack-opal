@@ -16,18 +16,30 @@ Based on https://python-evdev.readthedocs.io/en/latest/tutorial.html
 
 """
 import sys
+import time
 
 from evdev import InputDevice, categorize, ecodes
 
-dev = InputDevice(sys.argv[1])
+def main():
 
-print(dev)
-for key, item in dev.capabilities(verbose=True).items():
-    print(key)
-    for ev in item:
-        print(f"    {ev}")
+    dev = InputDevice(sys.argv[-1])
 
-for event in dev.read_loop():
-    # Only interested in KEY, ABS and REL
-    # if event.type in [ecodes.EV_KEY, ecodes.EV_ABS, ecodes.EV_REL]:
-    print(categorize(event), event.value)
+    print(dev)
+    print("Begin capabilities")
+    for key, item in dev.capabilities(verbose=True).items():
+        print(key)
+        for ev in item:
+            print(f"    {ev}")
+    print("End capabilities")
+    if '-c' in sys.argv:
+        print("Exiting: -c = capabilities only")
+        sys.exit(0)
+
+    start_time = time.time_ns()
+    for event in dev.read_loop():
+        now = time.time_ns()
+        print(f"@{(now - start_time) / 1_000_000_000:.3f} sec: {categorize(event)} => {event.value}")
+
+
+if __name__ == '__main__':
+    main()

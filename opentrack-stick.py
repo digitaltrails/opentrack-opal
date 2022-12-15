@@ -236,7 +236,7 @@ class OpenTrackStick:
     def __init__(self, wait_secs=0.001, smoothing=500, smooth_alpha=0.1, bindings=(1, 2, 3, 4, 5, 6), debug=False):
         self.wait_secs = wait_secs
         self.debug = debug
-        self.last_time = time.time_ns()
+        self.start_time = time.time_ns()
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
         print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
@@ -260,11 +260,13 @@ class OpenTrackStick:
                            smoothing=smoothing, smooth_alpha=smooth_alpha),
             StickOutputDef(ecodes.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0)),
             HatOutputDef(ecodes.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
-            HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),]
-        print(f"Opentrack inputs:", ", ".join([otd.name for otd in self.opentrack_data_items]))
-        print("Current outputs destinations: ", ','.join(str(i) for i in bindings))
-        print(f"Possible output destinations: ",
-              ", ".join([f"{i + 1}={d.name}" for i, d in enumerate(self.abs_outputs_defs)] + ["0=discard"]))
+            HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)), ]
+        print(f"Opentrack inputs:", ",".join([otd.name for otd in self.opentrack_data_items]))
+        print(f"Available outputs: ",
+              ",".join([f"{i + 1}={d.name}" for i, d in enumerate(self.abs_outputs_defs)] + ["0=discard"]))
+        print("Bound outputs: -b {} => ({})".format(
+            ','.join(str(i) for i in bindings),
+            ','.join((f"{ot.name}->discard" if i == 0 else f"{ot.name}->{self.abs_outputs_defs[i - 1].name}") for i, ot in zip(bindings, self.opentrack_data_items))))
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
         ui_input_capabilities = {
             ecodes.EV_KEY: [ecodes.BTN_A, ecodes.BTN_GAMEPAD, ecodes.BTN_SOUTH,
@@ -280,13 +282,13 @@ class OpenTrackStick:
         for destination_num, opentrack_cap in zip(bindings, self.opentrack_data_items):
             if destination_num == 0:
                 self.destination_list.append(None)
-                print(f"Binding opentrack {opentrack_cap.name} to discard")
+                print(f"Binding opentrack {opentrack_cap.name} to discard output")
             else:
                 index = destination_num - 1
                 self.abs_outputs_defs[index].bind(opentrack_cap)
                 destination = self.abs_outputs_defs[index]
                 self.destination_list.append(destination)
-                print(f"Binding opentrack {opentrack_cap.name} to {destination.name}")
+                print(f"Binding opentrack {opentrack_cap.name} to {destination.name} output")
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -308,19 +310,18 @@ class OpenTrackStick:
             if not data_exhausted:
                 data_exhausted = self.__send_to_hid__(current)
             if self.debug and data_exhausted:
-                print("waiting for new data")
+                print(f"waiting for new data @{(time.time_ns() - self.start_time) / 1_000_000_000:.3f} sec")
 
     def __send_to_hid__(self, values):
-        debug = []
         data_exhausted = True
+        send_t = time.time_ns() if self.debug else 0
         for destination_def, raw_value in zip(self.destination_list, values):
             if destination_def:
-                cooked_value = destination_def.cooked_value(raw_value)
-                data_exhausted &= destination_def.send_to_hid(self.hid_device, cooked_value)
-                if self.debug:
-                    debug.append(f"{destination_def.name}={cooked_value} (raw={raw_value})")
-        if debug:
-            print(",".join(debug))
+                data_exhausted &= destination_def.send_to_hid(self.hid_device, raw_value, debug=self.debug)
+        if self.debug:
+            now = time.time_ns()
+            print(f" {(now - send_t) / 1_000_000:.2f} ms, @{(now - self.start_time) / 1_000_000_000:.3f} sec, "
+                  f"data_exhausted={data_exhausted}")
         self.hid_device.syn()
         return data_exhausted
 
@@ -346,8 +347,10 @@ class AbsOutputDef:
     def evdev_code(self):
         return self.ev_info[0]
 
-    def send_to_hid(self, hid_device, cooked_value):
-        hid_device.write(ecodes.EV_ABS, self.evdev_code, cooked_value)
+    def send_to_hid(self, hid_device, raw_value, debug=False):
+        value = self.cooked_value(raw_value)
+        hid_device.write(ecodes.EV_ABS, self.evdev_code, value)
+        print(f"{self.name}->{value} ({raw_value:.4})", end=',') if debug else None
         return self.data_exhausted
 
 
@@ -375,6 +378,12 @@ class HatOutputDef(AbsOutputDef):
         # dif = round(raw_value - self.previous_raw_value)
         dif = round(raw_value)
         return 0 if dif == 0 else -dif // abs(dif)
+
+    def send_to_hid(self, hid_device, raw_value, debug=False):
+        try:
+            return super.send_to_hid(hid_device, raw_value, debug)
+        finally:
+            time.sleep(0.150)
 
 
 class Smooth:
