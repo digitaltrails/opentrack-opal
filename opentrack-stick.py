@@ -114,21 +114,22 @@ virtual-control-1, virtual-control-4, and virtual-control-5,
 that corresponds to `-b 0,0,1,4,5,0`.
 
 1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
-2. Start opentrack-stick with only one axis mapped. For example
-   yaw to  virtual-control-4, pass -b 0,0,0,4,0,0..
-3. Start opentrack sending `Output` `UDP over network`
+2. Start opentrack-stick with only one axis mapped. For example,
+   to enable yaw output to virtual-control-4, pass -b 0,0,0,4,0,0..
+3. Start opentrack, configure `Output` `UDP over network`
    with the port and address from step 1.
 4. Check that the above is working (perhaps just run
    ``opentrack-stick -d`` at first to see if logs the events
    coming from opentrack).
-6. Change the target curve so that head movement easily
-   moves between the min and max output values. It's import
-   that it ramps up smoothly and reaches the max value (or near
-   to it).  If it doesn't ramp smoothy or doesn't get high
-   enough, the game will ignore it as noise.
-7. Start Steam and IL2 BoX and use the games key mapping
-   menu to map pilot-head pitch to actual head pitch by
-   moving your head appropriately.
+6. In the opentrack GUI, change the target curve so that head
+   movement easily moves between the min and max output values.
+   It's import that it ramps up smoothly and reaches the max
+   value (or near to it).  If it doesn't ramp smoothy or doesn't
+   get high enough, the game will ignore it as noise.
+7. Start Steam and IL2 BoX and use the game's key mapping
+   menu to map your head movement axis.  For example,
+   choose the IL-2 pilot-head-turn mapping, bind it
+   to virtual-control-4 by yawing your head appropriately.
 8. Repeat for next target mapping.
 
 Rather than restarting IL-2 BoX to perform each mapping,

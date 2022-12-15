@@ -29,5 +29,5 @@ for key, item in dev.capabilities(verbose=True).items():
 
 for event in dev.read_loop():
     # Only interested in KEY, ABS and REL
-    if event.type in [ecodes.EV_KEY, ecodes.EV_ABS, ecodes.EV_REL]:
-        print(categorize(event), event.value)
+    # if event.type in [ecodes.EV_KEY, ecodes.EV_ABS, ecodes.EV_REL]:
+    print(categorize(event), event.value)
