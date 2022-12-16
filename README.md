@@ -29,7 +29,14 @@ opentrack-mouse - UDP-Output to mouse-events
 ============================================
 
 Translate opentrack UDP-output to Linux-evdev/HID mouse 
-events.
+events.  
+
+Opentrack-mouse is easy to set up, all existing 
+games/apps will automatically receive its mouse events.
+The downside is that head-tracking via a mouse is subject
+to drift, the tracking and the on-screen orientation
+drift apart (necessitating the periodic use of a re-center
+button).
 
 See [opentrack-mouse.md](opentrack-mouse.md).
 
@@ -38,6 +45,13 @@ opentrack-stick - UDP-Output to joystick-events
 
 Translate opentrack UDP-output to Linux-evdev joystick events
 emulating a `Microsoft X-Box 360 pad`.
+
+Opentrack-stick provides an accurate head tracking experience,
+positioning is absolute, and not subject to drift.  However,
+opntrack-stick requires the targeted game/app to support mapping 
+joystick-axes to in-app view-changes/head-turns.  The user will 
+have to use the games key/button/axes mapping system to 
+individually bind opentrack-axes to view-changes/head-turns.
 
 See [opentrack-stick.md](opentrack-stick.md).
 
