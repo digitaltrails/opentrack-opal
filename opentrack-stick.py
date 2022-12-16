@@ -111,7 +111,7 @@ head yaw and pitch in IL-2 BoX.
 
 What I did:
 
-I mapped opentrack head-z, head-yaw, head-pitch, and  to
+I mapped opentrack head-z, head-yaw, and head-pitch to
 virtual-control-1, virtual-control-4, and virtual-control-5,
 that corresponds to `-b 0,0,1,4,5,0`.
 
