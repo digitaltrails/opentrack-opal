@@ -64,12 +64,14 @@ Virtual control numbers
 0. no-control
 1. left-stick, x-axis
 2. left-stick, y-axis
-3. left-stick, z-axis (some games don't recognise this axis)
+3. left-stick, z-axis (possibly not functioning)
 4. right-stick x-axis
 5. right-stick y-axis
-6. right-stick z-axis (some games don't recognise this axis)
-7. hat-x (some games don't recognise this control)
-8. hat-y (some games don't recognise this control)
+6. right-stick z-axis (possibly not functioning)
+7. hat-x (possibly not functioning)
+8. hat-y (possibly not functioning)
+9. btn_thumb/btn_thumb2 button minus/plus pairing (possibly not functioning)
+10. btn_top/btn_top2 button minus/plus pairing (possibly not functioning)
 
 For example: `-b 0,0,1,4,5,0` binds opentrack-x to nothing,
 opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
