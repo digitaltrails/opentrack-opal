@@ -160,8 +160,6 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
-Only pitch and yaw is implemented at this time.
-
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
 at allowing smooth transitions.
