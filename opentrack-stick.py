@@ -185,6 +185,24 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
+The BTN implementation is buggy.  For the moment, prefer
+ABS mappings if possible.
+
+In the current implementation, the buttons only seem to
+work if the mapping graph starts flat for a bit and then
+and then steps at an angle to the full value, shaped sort of
+like _/
+
+I need to develop an algorithm/heuristic to turn the
+x, y, z coordinates, output by opentrack, into a series
+of button events that smoothly reflect head movements
+(if that's possible).
+
+In the current implementation, the BTN's behave like snap actions.
+There is almost no control over the magnitude of the action, for
+example, once off center it's near impossible to make a small
+move to return to the center, it always overshoots.
+
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
 at allowing smooth transitions.
