@@ -31,13 +31,16 @@ opentrack-stick listens for opentrack-output UDP-packets and uses evdev
 to inject them into Linux input subsystem as HID joystick events.
 
 The virtual-stick claims to have the same evdev capabilities as a
-`Microsoft X-Box 360 pad` - but not all of them are functional (just the
-stick axes at this stage)
+`Microsoft X-Box 360 pad`.
 
 By default, the x, y, z, yaw, pitch, and roll opentrack values are sent
 to the virtual controller's left stick x, y, z and right stick x, y, z
-(z is some kind of trigger based axes with a limited range, and
-not recognised by some games).
+Z is some kind of trigger based axes with a limited range.
+
+Some games don't support axes assignment to x, y, and z, but they may
+be able to be assigned to +/- button mappings instead.  Several pairings
+of buttons are supported for mapping pairs of moves, for example head
+move to the left, and head move to the right.
 
 The evdev joystick events are injected at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
@@ -64,17 +67,17 @@ Virtual control numbers
 
     1. ABS_RX,
     2. ABS_RY,
-    3. ABS_RZ (Not proven to work!),
+    3. ABS_RZ,
     4. ABS_X,
     5. ABS_Y,
-    6. ABS_Z (Not proven to work!),
-    7. ABS_HAT0X (Not proven to work!),
-    8. ABS_HAT0Y (Not proven to work!),
+    6. ABS_Z,
+    7. ABS_HAT0X,
+    8. ABS_HAT0Y,
     9. BTN_A<=>BTN_B,BTN  (a pair of buttons - use for -/+ key mappings)
-    10. BTN_NORTH<=>BTN_WEST (Not proven to work!),
-    11. BTN_TL<=>BTN_TR (Not proven to work!),
-    12. BTN_SELECT<=>BTN_START (Not proven to work!),
-    13. BTN_MODE<=>BTN_TR (Not proven to work!),
+    10. BTN_NORTH<=>BTN_WEST,
+    11. BTN_TL<=>BTN_TR,
+    12. BTN_SELECT<=>BTN_START,
+    13. BTN_MODE<=>BTN_TR,
 
 For example: `-b 9,0,1,4,5,0` binds opentrack-x to control-9,
 opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
@@ -86,9 +89,12 @@ joystick and HAT axes.
 
 The BTN mappings correspond to pairs of buttons.  For example,
 mapping an opentrack-x movement to `BTN-A<=>BTN-B` would result in
-the virtual-stick generating a BTN-A event when you move to one
-side and a BTN-B event when you move to the other side.
-
+the virtual-stick generating a BTN-A event when you move one
+way and a BTN-B event when you move the other way.  When setting
+up buttons it pays to set the opentrack mapping curves with
+a large dead zone. That way you can be certain of which key will be
+sent to the game.  The `-d` parameter may be useful to see what
+ is being sent in response to your movements.
 
 
 Quick Start
@@ -158,14 +164,17 @@ new opentrack-stick with the next `-b` value, for
 example `opentrack-stick -b 0,0,0,5,0` to map opentrack-pitch
 to virtual-control-5.
 
-
 Having setup head yaw and pitch, I assigned opentrack-z to
 virtual-control-1 and bound that to head-zoom.
 
 The game doesn't support using axes for x, y, z head motion,
-it expects these to be assigned to buttons.  I used
-`9. BTN_A<=>BTN_B,BTN` for x, side to side movement.
+it expects these to be assigned to buttons.  I used the
+pair `9. BTN_A<=>BTN_B,BTN` for x, side to side movement;
+`10` for y, and `11` for z.
 
+My final IL-2 BoX mappings are `-b 9,10,11,4,5,0`.
+I additionally mapped head zoom to axis 1, so I can optionally
+switch to the mapping `-b 9,10,1,4,5,0`.
 
 Opentrack Protocol
 ==================
@@ -179,6 +188,8 @@ Limitations
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
 at allowing smooth transitions.
+
+Axis mappings `3` and `6` are not tested.
 
 Testing
 =======
@@ -276,20 +287,20 @@ class OpenTrackStick:
                            smoothing=smoothing, smooth_alpha=smooth_alpha),
             StickOutputDef(ecodes.ABS_Z, AbsInfo(value=0, min=0, max=255, fuzz=0, flat=0, resolution=0),
                            smoothing=smoothing, smooth_alpha=smooth_alpha, functional=False),
-            HatOutputDef(ecodes.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0), functional=False),
-            HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0), functional=False), ]
+            HatOutputDef(ecodes.ABS_HAT0X, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)),
+            HatOutputDef(ecodes.ABS_HAT0Y, AbsInfo(value=0, min=-1, max=1, fuzz=0, flat=0, resolution=0)), ]
         self.btn_output_def_list = [
             BtnPairOutputDef(ecodes.BTN_A, ecodes.BTN_B),  # This pair works
-            BtnPairOutputDef(ecodes.BTN_X, ecodes.BTN_Y, functional=False),
-            BtnPairOutputDef(ecodes.BTN_TL, ecodes.BTN_TR, functional=False),
-            BtnPairOutputDef(ecodes.BTN_SELECT, ecodes.BTN_START, functional=False),
-            BtnPairOutputDef(ecodes.BTN_MODE, ecodes.BTN_TR, functional=False),
+            BtnPairOutputDef(ecodes.BTN_X, ecodes.BTN_Y),
+            BtnPairOutputDef(ecodes.BTN_TL, ecodes.BTN_TR),
+            BtnPairOutputDef(ecodes.BTN_SELECT, ecodes.BTN_START),
+            BtnPairOutputDef(ecodes.BTN_MODE, ecodes.BTN_TR),
         ]
         self.all_output_def_list = self.abs_outputs_def_list + self.btn_output_def_list
         print(f"Opentrack inputs:", ",".join([otd.name for otd in self.opentrack_data_items]))
         print(f"Available outputs:\n   ",
-              ",\n    ".join([f"{i + 1}. {d.name}{'' if d.functional else ' (Not proven to work!)'}"
-                              for i, d in enumerate(self.all_output_def_list)] + ["0=discard"]))
+              ",\n    ".join(["0. discard/ignore input"] + [f"{i + 1}. {d.name}{'' if d.functional else ' (Not tested!)'}"
+                                                            for i, d in enumerate(self.all_output_def_list)]))
         print("Bound outputs: -b {} => ({})".format(
             ','.join(str(i) for i in bindings),
             ','.join((f"{ot.name}->discard" if i == 0 else f"{ot.name}->{self.all_output_def_list[i - 1].name}") for i, ot in
@@ -304,7 +315,7 @@ class OpenTrackStick:
             ecodes.EV_ABS: [(output_def.evdev_code, output_def.evdev_abs_info) for output_def in self.abs_outputs_def_list],
             ecodes.EV_FF: [ecodes.FF_EFFECT_MIN, ecodes.FF_RUMBLE]
         }
-        self.hid_device = evdev.UInput(ui_input_capabilities, name="Microsoft X-Box 360 pad 0")
+        self.hid_device = evdev.UInput(ui_input_capabilities, name="Microsoft X-Box 360 pad 0", vendor=0x0738, product=0x028F )
         self.destination_list = []
         for destination_num, opentrack_cap in zip(bindings, self.opentrack_data_items):
             if destination_num == 0:
@@ -383,10 +394,9 @@ class OutputDef:
         self.evdev_type = evdev_type
         self.evdev_code = evdev_code
         self.opentrack_info = None
-        self.name = str(evdev_name).replace("'","").replace(' ', '')
+        self.name = str(evdev_name).replace("'", "").replace(' ', '')
         self.data_exhausted = True
         self.functional = functional
-
 
     def bind(self, opentrack_info):
         self.opentrack_info = opentrack_info
@@ -452,7 +462,8 @@ class HatOutputDef(OutputDef):
 class BtnPairOutputDef(OutputDef):
 
     def __init__(self, evdev_code_minus, evdev_code_plus, functional=True):
-        super().__init__(ecodes.EV_KEY, evdev_code_minus, f"{ecodes.BTN[evdev_code_minus]} <=> {ecodes.BTN[evdev_code_plus]}", functional)
+        super().__init__(ecodes.EV_KEY, evdev_code_minus, f"{ecodes.BTN[evdev_code_minus]} <=> {ecodes.BTN[evdev_code_plus]}",
+                         functional)
         self.name_minus = str(ecodes.BTN[evdev_code_minus]).replace(' ', '')
         self.name_plus = str(ecodes.BTN[evdev_code_plus]).replace(' ', '')
         self.evdev_code_minus = self.evdev_code
@@ -478,7 +489,6 @@ class BtnPairOutputDef(OutputDef):
             return False
         self.sent_previous_cooked = cooked_value
         return super().send_to_hid(hid_device, cooked_value)
-
 
     def debug_value(self, raw_value, value):
         name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
