@@ -61,22 +61,34 @@ opentrack axes in the mapping order: x, y, z, yaw, pitch, roll.
 Virtual control numbers
 -----------------------
 
-0. no-control
-1. left-stick, x-axis
-2. left-stick, y-axis
-3. left-stick, z-axis (possibly not functioning)
-4. right-stick x-axis
-5. right-stick y-axis
-6. right-stick z-axis (possibly not functioning)
-7. hat-x (possibly not functioning)
-8. hat-y (possibly not functioning)
-9. btn_thumb/btn_thumb2 button minus/plus pairing (possibly not functioning)
-10. btn_top/btn_top2 button minus/plus pairing (possibly not functioning)
+    1. ABS_RX,
+    2. ABS_RY,
+    3. ABS_RZ (Not proven to work!),
+    4. ABS_X,
+    5. ABS_Y,
+    6. ABS_Z (Not proven to work!),
+    7. ABS_HAT0X (Not proven to work!),
+    8. ABS_HAT0Y (Not proven to work!),
+    9. BTN_A<=>BTN_B,BTN  (a pair of buttons - use for -/+ key mappings)
+    10. BTN_NORTH<=>BTN_WEST (Not proven to work!),
+    11. BTN_TL<=>BTN_TR (Not proven to work!),
+    12. BTN_SELECT<=>BTN_START (Not proven to work!),
+    13. BTN_MODE<=>BTN_TR (Not proven to work!),
 
-For example: `-b 0,0,1,4,5,0` binds opentrack-x to nothing,
+For example: `-b 9,0,1,4,5,0` binds opentrack-x to control-9,
 opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
 to control-4, opentrack-pitch to control-5 to, and opentrack-roll
 to nothing.
+
+The ABS (absolute position) mappings correspond to individual
+joystick and HAT axes.
+
+The BTN mappings correspond to pairs of buttons.  For example,
+mapping an opentrack-x movement to `BTN-A<=>BTN-B` would result in
+the virtual-stick generating a BTN-A event when you move to one
+side and a BTN-B event when you move to the other side.
+
+
 
 Quick Start
 ===========
@@ -107,6 +119,9 @@ Game Training Example: IL2 BoX
 
 These are the steps I followed to get the controller to work for
 head yaw and pitch in IL-2 BoX.
+
+On the game tested (IL-2 BoX in Steam), only 1, 2, 4, 5, 9 were
+recognised and mappable by the in-game key-mapping system.
 
 What I did:
 
@@ -142,13 +157,13 @@ new opentrack-stick with the next `-b` value, for
 example `opentrack-stick -b 0,0,0,5,0` to map opentrack-pitch
 to virtual-control-5.
 
-IL-2 BoX appears to ignore the virtual-controller's two Z axes,
-virtual-control-3 and virtual-control-6. So they can't be used.
 
-Having setup head yaw and pitch, I had no success in assigning
-head movement (x, y, z).  Unlike head-movement, I did find
-it possible to assign an axis to head-zoom, so I assigned
-opentrack-z to virtual control-1.
+Having setup head yaw and pitch, I assigned opentrack-z to
+virtual-control-1 and bound that to head-zoom.
+
+The game doesn't support using axes for x, y, z head motion,
+it expects these to be assigned to buttons.  I used
+`9. BTN_A<=>BTN_B,BTN` for x, side to side movement.
 
 
 Opentrack Protocol
