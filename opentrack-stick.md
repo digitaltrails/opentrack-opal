@@ -84,6 +84,10 @@ to nothing.
 The ABS (absolute position) mappings correspond to individual
 joystick and HAT axes.
 
+Each HAT axis functions like a button with three states (-1,0,1),
+it can effectively serve as a pair of mutually exclusive button
+actions. See the following section on Virtual Button mappings.
+
 Virtual Button mappings
 -----------------------
 
@@ -224,9 +228,6 @@ Limitations
 Discovering the neutral center position requires sitting
 at center when opentrack-stick is started.
 
-The BTN implementation is alpha.  For the moment, prefer
-axes based mappings if possible.
-
 In the current implementation, the BTN's behave like snap actions.
 There is almost no control over the magnitude of the action, for
 example, once off center it's near impossible to make a small
@@ -237,9 +238,8 @@ The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
 at allowing smooth transitions.
 
-Axis virtual-controls `3` and `6` and the HAT actions '7' and '8'
-are untested.  Please use the other axes and button actions
-if you can.
+Axis virtual-controls `3` and `6` are untested.  Please use the
+other axes and button actions if you can.
 
 Testing
 =======
