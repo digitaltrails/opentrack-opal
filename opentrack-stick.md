@@ -107,7 +107,7 @@ Snap Center Seventh Binding
 
 Because button presses are an inexact positioning method, a seventh
 binding can be assigned for a snap-center action. When bound, the
-seventh binding generates a center event after other button actions,
+seventh binding generates a center event following other button actions,
 when x, y, and z are near center.  To assign this button in a game:
 
   1. Choose unassigned button-pair, for example, number 12.
@@ -116,15 +116,14 @@ when x, y, and z are near center.  To assign this button in a game:
   3. Start `opentrack-stick`, it will output the message that
      `Auto center training is on`
   4. Start `opentrack` and the game.
-  5. In the game key mappings find the key-mapping for
-     move-head-to-centre and map a new key.
+  5. In the game key-mappings, find the key-mapping for
+     move-head-to-centre and choose to map it to a new key.
   6. When the game is waiting for the new key to be input,
-     nod your head fully up and down (your head pitch).
-  7. The game should then bind a new key.
+     nod your head fully up and down (change your head pitch).
+  7. The game should bind a new key.
   8. At this point you are done and can now run opentrack-stick
      with auto-centering by passing the seventh binding along
      with your other bindings, for example `-b 9,10,11,4,5,0,12`
-
 
 
 Quick Start
@@ -222,19 +221,25 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
+Discovering the neutral center position requires sitting
+at center when opentrack-stick is started.
+
 The BTN implementation is alpha.  For the moment, prefer
 axes based mappings if possible.
 
 In the current implementation, the BTN's behave like snap actions.
 There is almost no control over the magnitude of the action, for
 example, once off center it's near impossible to make a small
-series of moves to return to the center.
+series of moves to return to the center, hence the 7th binding
+for auto-centering.
 
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
 at allowing smooth transitions.
 
-Axis mappings `3` and `6` are not tested.
+Axis virtual-controls `3` and `6` and the HAT actions '7' and '8'
+are untested.  Please use the other axes and button actions
+if you can.
 
 Testing
 =======
