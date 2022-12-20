@@ -18,7 +18,7 @@ Optional Arguments
     -s <int>     Smooth over n values (default 250)
     -a <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
     -b <csv>     Bindings for opentrack-axis to virtual-control-number, must be 6 integers
-                 (default 1,2,3,4,5,6)
+                 (default 1,2,3,4,5,6,0), the seventh binding is for a snap centre button.
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -h           Help
@@ -40,7 +40,16 @@ Z is some kind of trigger based axes with a limited range.
 Some games don't support axes assignment to x, y, and z, but they may
 be able to be assigned to +/- button mappings instead.  Several pairings
 of buttons are supported for mapping pairs of moves, for example head
-move to the left, and head move to the right.
+move to the left, and head move to the right.  This feature is a work
+in progress.
+
+Because button mappings are, by their nature, inexact, a seventh
+binding can be made for a snap-center action. An event for the seventh
+binding is automatically applied when, following a button action,
+x, y, and z are near center.  To assign this button in a game,
+temporarily make it the only button mapped, go to the games key
+mapping for snap center, assign a new key, then move your head
+vigorously to activate it.
 
 The evdev joystick events are injected at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
@@ -94,8 +103,9 @@ way and a BTN-B event when you move the other way.  When setting
 up buttons it pays to set the opentrack mapping curves with
 a large dead zone. That way you can be certain of which key will be
 sent to the game.  The `-d` parameter may be useful to see what
- is being sent in response to your movements.
+is being sent in response to your movements.
 
+Any of the buttons can be bound the seventh recentering action.
 
 Quick Start
 ===========
@@ -136,6 +146,10 @@ I mapped opentrack head-z, head-yaw, and head-pitch to
 virtual-control-1, virtual-control-4, and virtual-control-5,
 that corresponds to `-b 0,0,1,4,5,0`.
 
+0. While training, temporarily, configure the game to run
+   non-full-screen at a resolution that allows you to easily
+   alt-tab opentrack's control-window and to an xterm/konsole
+   in which is running opentrack-stick.
 1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
 2. Start opentrack-stick with only one axis mapped. For example,
    to enable yaw output to virtual-control-4, pass -b 0,0,0,4,0,0..
@@ -273,6 +287,8 @@ UDP_PORT = 5005
 
 OpenTrackDataItem = namedtuple("OpenTrackDataItem", "name value min max")
 
+auto_center_needed = False
+
 
 class OpenTrackStick:
 
@@ -322,7 +338,7 @@ class OpenTrackStick:
         print("Bound outputs: -b {} => ({})".format(
             ','.join(str(i) for i in bindings),
             ','.join((f"{ot.name}->discard" if i == 0 else f"{ot.name}->{self.all_output_def_list[i - 1].name}") for i, ot in
-                     zip(bindings, self.opentrack_data_items))))
+                     zip(bindings[0:6], self.opentrack_data_items))))
         # Have to include the buttons for the hid device to be ID'ed as a joystick:
         ui_input_capabilities = {
             ecodes.EV_KEY: [ecodes.BTN_A, ecodes.BTN_GAMEPAD, ecodes.BTN_SOUTH,
@@ -333,9 +349,9 @@ class OpenTrackStick:
             ecodes.EV_ABS: [(output_def.evdev_code, output_def.evdev_abs_info) for output_def in self.abs_outputs_def_list],
             ecodes.EV_FF: [ecodes.FF_EFFECT_MIN, ecodes.FF_RUMBLE]
         }
-        self.hid_device = evdev.UInput(ui_input_capabilities, name="Microsoft X-Box 360 pad 0", vendor=0x0738, product=0x028F )
+        self.hid_device = evdev.UInput(ui_input_capabilities, name="Microsoft X-Box 360 pad 0", vendor=0x0738, product=0x028F)
         self.destination_list = []
-        for destination_num, opentrack_cap in zip(bindings, self.opentrack_data_items):
+        for destination_num, opentrack_cap in zip(bindings[0:6], self.opentrack_data_items):
             if destination_num == 0:
                 self.destination_list.append(None)
                 print(f"Binding opentrack {opentrack_cap.name} to discard output")
@@ -345,6 +361,12 @@ class OpenTrackStick:
                 destination.bind(opentrack_cap)
                 self.destination_list.append(destination)
                 print(f"Binding opentrack {opentrack_cap.name} to {destination.name} output")
+        self.auto_center_destination = None
+        self.auto_center_training = False
+        if len(bindings) == 7:
+            self.auto_center_training = all(btn.opentrack_info is None for btn in self.btn_output_def_list)
+            self.auto_center_destination = self.all_output_def_list[bindings[6] - 1]
+            print(f"Binding auto-center event to to {self.auto_center_destination.name} output")
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -397,13 +419,21 @@ class OpenTrackStick:
                 cooked_value = destination_def.cooked_value(raw_value)
                 data_exhausted &= destination_def.data_exhausted
                 sent_any |= destination_def.send_to_hid(self.hid_device, cooked_value)
-                debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug else None
+                debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug and cooked_value else None
+        if self.auto_center_training:
+            sent_any |= self.auto_center_destination.send_to_hid(self.hid_device)
         if sent_any:
             self.hid_device.syn()
             if self.debug:
                 now = time.time_ns()
                 print(f"aa @{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
                       f"data_exhausted={data_exhausted}", ", ".join(debug_msg))
+            global auto_center_needed
+            if auto_center_needed and self.auto_center_destination is not None:
+                self.auto_center_destination.reset()
+                self.auto_center_destination.send_to_hid(self.hid_device, 1)
+                self.hid_device.syn()
+                auto_center_needed = False
         return data_exhausted
 
 
@@ -427,6 +457,9 @@ class OutputDef:
             hid_device.write(self.evdev_type, self.evdev_code, cooked_value)
             return True
         return False
+
+    def reset(self):
+        pass
 
     def debug_value(self, raw_value, value):
         return f"{self.name}->{value} ({self.opentrack_info.name}={raw_value:.4})"
@@ -484,29 +517,52 @@ class BtnPairOutputDef(OutputDef):
                          functional)
         self.name_minus = str(ecodes.BTN[evdev_code_minus]).replace(' ', '')
         self.name_plus = str(ecodes.BTN[evdev_code_plus]).replace(' ', '')
-        self.evdev_code_minus = self.evdev_code
+        self.evdev_code_minus = evdev_code_minus
         self.evdev_code_plus = evdev_code_plus
-        self.sent_previous_cooked = 0
+        self.previous_cooked_value = None
+        self.previous_code = None
+        self.start_time = time.time_ns()
 
     def cooked_value(self, raw_value):
-        if raw_value is None:
-            return None
-        if math.isclose(raw_value, 0.0):
-            # Key up for previous code
-            return 0
-        # Remember which key was pressed down, for the following key up event.
-        if raw_value > 0:
-            self.evdev_code = self.evdev_code_plus
-        else:
-            self.evdev_code = self.evdev_code_minus
-        return 1
+        dif = round(raw_value)
+        direction = 0 if -15 < dif < 15 else dif // abs(dif)
+        if direction != 0:
+            self.evdev_code = self.evdev_code_plus if direction > 0 else self.evdev_code_minus
+            return 1  # Button down
+        return 0  # Button up
 
-    def send_to_hid(self, hid_device, cooked_value):
-        if cooked_value == self.sent_previous_cooked:
-            # Don't send again until the key value toggles to the opposite value (0/1)
-            return False
-        self.sent_previous_cooked = cooked_value
-        return super().send_to_hid(hid_device, cooked_value)
+    def send_to_hid(self, hid_device, cooked_value=None):
+        repeating = self.evdev_code == self.previous_code and cooked_value == self.previous_cooked_value
+        if repeating:
+            return super().send_to_hid(hid_device, None)
+        self.previous_code = self.evdev_code
+        self.previous_cooked_value = cooked_value
+        super().send_to_hid(hid_device, cooked_value)
+        if cooked_value == 0:
+            global auto_center_needed
+            auto_center_needed = True
+        return True
+
+    def reset(self):
+        self.previous_cooked_value = None
+        self.previous_code = None
+
+    def debug_value(self, raw_value, value):
+        name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
+        return f"{self.name}->{name} {value} ({self.opentrack_info.name}={raw_value})"
+
+
+class AcdBtnPairOutputDef(BtnPairOutputDef):
+
+    def __init__(self, evdev_code_minus, evdev_code_plus, functional=True):
+        super().__init__(evdev_code_minus, evdev_code_plus, functional)
+
+    def cooked_value(self, raw_value):
+        return 1  # Button down
+
+    def send_to_hid(self, hid_device, cooked_value=None):
+        super().send_to_hid(hid_device, 1)
+        return True
 
     def debug_value(self, raw_value, value):
         name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
