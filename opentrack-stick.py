@@ -362,11 +362,18 @@ class OpenTrackStick:
                 self.destination_list.append(destination)
                 print(f"Binding opentrack {opentrack_cap.name} to {destination.name} output")
         self.auto_center_destination = None
-        self.auto_center_training = False
+        self.auto_center_training = all(d is None for d in self.destination_list)
         if len(bindings) == 7:
             self.auto_center_training = all(btn.opentrack_info is None for btn in self.btn_output_def_list)
-            self.auto_center_destination = self.all_output_def_list[bindings[6] - 1]
+            ac_def_index = bindings[6] - 1
+            self.auto_center_destination = self.all_output_def_list[ac_def_index]
             print(f"Binding auto-center event to to {self.auto_center_destination.name} output")
+            if self.auto_center_training:
+                print(f"Auto center training is on - to map, nod when in game mapping dialog.")
+                dummy_index = 10 if ac_def_index != 10 else 11
+                dummy_destination_def = AcdTrainingDummyOutputDef(ecodes.BTN_A, ecodes.BTN_B)
+                dummy_destination_def.bind(self.opentrack_data_items[4])
+                self.destination_list[4] = dummy_destination_def
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -410,6 +417,7 @@ class OpenTrackStick:
         return self.abs_outputs_def_list + self.btn_output_def_list
 
     def __send_to_hid__(self, values):
+        global auto_center_needed
         data_exhausted = True
         send_t = time.time_ns() if self.debug else 0
         sent_any = False
@@ -421,19 +429,27 @@ class OpenTrackStick:
                 sent_any |= destination_def.send_to_hid(self.hid_device, cooked_value)
                 debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug and cooked_value else None
         if self.auto_center_training:
-            sent_any |= self.auto_center_destination.send_to_hid(self.hid_device)
+            sent_any = True
         if sent_any:
             self.hid_device.syn()
             if self.debug:
                 now = time.time_ns()
-                print(f"aa @{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
-                      f"data_exhausted={data_exhausted}", ", ".join(debug_msg))
-            global auto_center_needed
+                messages = ", ".join(debug_msg)
+                if messages != '':
+                    print(f"@{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
+                          f"data_exhausted={data_exhausted}",
+                          messages)
             if auto_center_needed and self.auto_center_destination is not None:
+                #time.sleep(0.004)
                 self.auto_center_destination.reset()
                 self.auto_center_destination.send_to_hid(self.hid_device, 1)
                 self.hid_device.syn()
+                self.auto_center_destination.send_to_hid(self.hid_device, 0)
+                self.hid_device.syn()
                 auto_center_needed = False
+                print(f"@{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
+                      f"data_exhausted={data_exhausted}",
+                      self.auto_center_destination.debug_value(0.0, 1))
         return data_exhausted
 
 
@@ -549,26 +565,27 @@ class BtnPairOutputDef(OutputDef):
 
     def debug_value(self, raw_value, value):
         name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
-        return f"{self.name}->{name} {value} ({self.opentrack_info.name}={raw_value})"
+        source = self.opentrack_info.name if self.opentrack_info is not None else "auto-centering"
+        return f"{self.name}->{name} {value} ({source}={raw_value})"
 
 
-class AcdBtnPairOutputDef(BtnPairOutputDef):
+class AcdTrainingDummyOutputDef(BtnPairOutputDef):
 
     def __init__(self, evdev_code_minus, evdev_code_plus, functional=True):
         super().__init__(evdev_code_minus, evdev_code_plus, functional)
 
-    def cooked_value(self, raw_value):
-        return 1  # Button down
-
     def send_to_hid(self, hid_device, cooked_value=None):
-        super().send_to_hid(hid_device, 1)
+        repeating = self.evdev_code == self.previous_code and cooked_value == self.previous_cooked_value
+        if repeating:
+            return False
+        self.previous_code = self.evdev_code
+        self.previous_cooked_value = cooked_value
+        if cooked_value == 0:
+            global auto_center_needed
+            auto_center_needed = True
         return True
-
     def debug_value(self, raw_value, value):
-        name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
-        # print(name, self.name_minus, self.name_plus, ecodes.BTN[self.evdev_code])
-        return f"{self.name}->{name} {value} ({self.opentrack_info.name}={raw_value})"
-
+        return ''
 
 class Smooth:
     def __init__(self, n, alpha=0.1):
