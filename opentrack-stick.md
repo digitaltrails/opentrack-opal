@@ -17,7 +17,7 @@ Optional Arguments
     -s <int>     Smooth over n values (default 250)
     -a <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
     -b <csv>     Bindings for opentrack-axis to virtual-control-number, must be 6 integers
-                 (default 1,2,3,4,5,6)
+                 (default 1,2,3,4,5,6,0), the seventh binding is for a snap centre button.
     -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
     -p <port>    The UDP port number to listen on for the UDP feed from opentrack
     -h           Help
@@ -36,22 +36,20 @@ By default, the x, y, z, yaw, pitch, and roll opentrack values are sent
 to the virtual controller's left stick x, y, z and right stick x, y, z
 Z is some kind of trigger based axes with a limited range.
 
+Opentrack-stick will fill/smooth/interpolate a gap in opentrack/joystick axes
+input by feeding the last move back into the smoothing algorithm. The
+parameters of the algorithm can be adjusted to suit your own situation.
+
 Some games don't support axes assignment to x, y, and z, but they may
-be able to be assigned to +/- button mappings instead.  Several pairings
-of buttons are supported for mapping pairs of moves, for example head
-move to the left, and head move to the right.
+be able to be assigned to +/- virtual button mappings instead.
 
 The evdev joystick events are injected at the HID device level and are
 independent of X11/Wayland, applications cannot differentiate them
 from ordinary joystick events.  This means opentrack-stick will work in
 any application, including environments such as Steam Proton.
 
-Opentrack-stick will fill/smooth/interpolate a gap in input by feeding
-the last move back into the smoothing algorithm. This will result in
-the most recent value becoming dominant as time progresses.
-
-Re-Mapping axis assignments
-===========================
+Mapping axis assignments
+========================
 
 The binding of the virtual-controls to opentrack-track control can
 be changed by using the `-b` option.
@@ -86,6 +84,9 @@ to nothing.
 The ABS (absolute position) mappings correspond to individual
 joystick and HAT axes.
 
+Virtual Button mappings
+-----------------------
+
 The BTN mappings correspond to pairs of buttons.  For example,
 mapping an opentrack-x movement to `BTN-A<=>BTN-B` would result in
 the virtual-stick generating a BTN-A event when you move one
@@ -93,7 +94,37 @@ way and a BTN-B event when you move the other way.  When setting
 up buttons it pays to set the opentrack mapping curves with
 a large dead zone. That way you can be certain of which key will be
 sent to the game.  The `-d` parameter may be useful to see what
- is being sent in response to your movements.
+is being sent in response to your movements.
+
+Any of the button-pairs can be bound the seventh recentering action.
+
+The button bindings, and the heuristics for translating from
+axes to button presses, is currently alpha level implementation.
+It works, but the experience is not that great.
+
+Snap Center Seventh Binding
+---------------------------
+
+Because button presses are an inexact positioning method, a seventh
+binding can be assigned for a snap-center action. When bound, the
+seventh binding generates a center event after other button actions,
+when x, y, and z are near center.  To assign this button in a game:
+
+  1. Choose unassigned button-pair, for example, number 12.
+  2. Temporarily make it the only button-pair mapped, for
+     example, `-b 0,0,0,0,0,0,12.
+  3. Start `opentrack-stick`, it will output the message that
+     `Auto center training is on`
+  4. Start `opentrack` and the game.
+  5. In the game key mappings find the key-mapping for
+     move-head-to-centre and map a new key.
+  6. When the game is waiting for the new key to be input,
+     nod your head fully up and down (your head pitch).
+  7. The game should then bind a new key.
+  8. At this point you are done and can now run opentrack-stick
+     with auto-centering by passing the seventh binding along
+     with your other bindings, for example `-b 9,10,11,4,5,0,12`
+
 
 
 Quick Start
@@ -135,12 +166,16 @@ I mapped opentrack head-z, head-yaw, and head-pitch to
 virtual-control-1, virtual-control-4, and virtual-control-5,
 that corresponds to `-b 0,0,1,4,5,0`.
 
-1. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
-2. Start opentrack-stick with only one axis mapped. For example,
+1. While training, temporarily, configure the game to run
+   non-full-screen at a resolution that allows you to easily
+   alt-tab opentrack's control-window and to an xterm/konsole
+   in which is running opentrack-stick.
+2. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
+3. Start opentrack-stick with only one axis mapped. For example,
    to enable yaw output to virtual-control-4, pass -b 0,0,0,4,0,0..
-3. Start opentrack, configure `Output` `UDP over network`
+4. Start opentrack, configure `Output` `UDP over network`
    with the port and address from step 1.
-4. Check that the above is working (perhaps just run
+5. Check that the above is working (perhaps just run
    ``opentrack-stick -d`` at first to see if logs the events
    coming from opentrack).
 6. In the opentrack GUI, change the target curve so that head
@@ -152,28 +187,31 @@ that corresponds to `-b 0,0,1,4,5,0`.
    menu to map your head movement axis.  For example,
    choose the IL-2 pilot-head-turn mapping, bind it
    to virtual-control-4 by yawing your head appropriately.
-8. Repeat for next target mapping.
+8. Repeat for next desired mapping.
 
-Rather than restarting IL-2 BoX to perform each mapping,
-I used two monitors. I used `alt-tab` between monitors
-displaying the game and an xterm. Without restarting
-IL-BoX or opentrack, I switched to the xterm,
-interrupted (control-C) opentrack-stick, then started a
-new opentrack-stick with the next `-b` value, for
-example `opentrack-stick -b 0,0,0,5,0` to map opentrack-pitch
-to virtual-control-5.
+As long as they are started before the targeted game or
+application, both opentrack-stick and opentrack can be
+terminated and restarted without restarting the game.
+Providing you can use alt-tab to switch between the
+game, opentrack, and opentrack-stick, there is no
+need to restart the game as you move through the training
+process.
 
 Having setup head yaw and pitch, I assigned opentrack-z to
-virtual-control-1 and bound that to head-zoom.
+virtual-control-1 and bound that to the game's head-zoom.
+That's a relatively useful combo, and the one I find works best.
+These bindings correspond to `-b 0,0,1,4,5,0`
 
 The game doesn't support using axes for x, y, z head motion,
 it expects these to be assigned to buttons.  I used the
 pair `9. BTN_A<=>BTN_B,BTN` for x, side to side movement;
-`10` for y, and `11` for z.
+`10` for y, and `11` for z. And finally, 12 for auto-centering.
 
-My final IL-2 BoX mappings are `-b 9,10,11,4,5,0`.
+My final IL-2 BoX mappings are `-b 9,10,1,4,5,0,12`.
 I additionally mapped head zoom to axis 1, so I can optionally
-switch to the mapping `-b 9,10,1,4,5,0`.
+switch to the mapping `-b 9,10,1,4,5,0,12`.  The 9,10 and
+12 button binds are just for beta testings at the moment,
+feel free to try them, but I'm not sure thet
 
 Opentrack Protocol
 ==================
@@ -184,23 +222,13 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
-The BTN implementation is buggy.  For the moment, prefer
-ABS mappings if possible.
-
-In the current implementation, the buttons only seem to
-work if the mapping graph starts flat for a bit and then
-and then steps at an angle to the full value, shaped sort of
-like _/
-
-I need to develop an algorithm/heuristic to turn the
-x, y, z coordinates, output by opentrack, into a series
-of button events that smoothly reflect head movements
-(if that's possible).
+The BTN implementation is alpha.  For the moment, prefer
+axes based mappings if possible.
 
 In the current implementation, the BTN's behave like snap actions.
 There is almost no control over the magnitude of the action, for
 example, once off center it's near impossible to make a small
-move to return to the center, it always overshoots.
+series of moves to return to the center.
 
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
