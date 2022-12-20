@@ -127,7 +127,6 @@ when x, y, and z are near center.  To assign this button in a game:
      with your other bindings, for example `-b 9,10,11,4,5,0,12`
 
 
-
 Quick Start
 ===========
 
@@ -223,13 +222,17 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
+Discovering the neutral center position requires sitting
+at center when opentrack-stick is started.
+
 The BTN implementation is alpha.  For the moment, prefer
 axes based mappings if possible.
 
 In the current implementation, the BTN's behave like snap actions.
 There is almost no control over the magnitude of the action, for
 example, once off center it's near impossible to make a small
-series of moves to return to the center.
+series of moves to return to the center, hence the 7th binding
+for auto-centering.
 
 The smoothing values need more research, as do other smoothing
 methods.  A small alpha (less than 0.1) seems particularly good
@@ -314,6 +317,8 @@ class OpenTrackStick:
         self.smoothing = smoothing
         self.smooth_alpha = smooth_alpha
         self.activity_count = 0
+        self.center = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        self.center_found = False
         print(f"Input wait max: {wait_secs * 1000} ms - will then feed the smoother with repeat values.")
         print(f"Smoothing: n={self.smoothing} alpha={self.smooth_alpha}")
         self.opentrack_data_items = [OpenTrackDataItem('x', 0, -75, 75),
@@ -388,6 +393,8 @@ class OpenTrackStick:
                 dummy_destination_def = AcdTrainingDummyOutputDef(ecodes.BTN_A, ecodes.BTN_B)
                 dummy_destination_def.bind(self.opentrack_data_items[4])
                 self.destination_list[4] = dummy_destination_def
+        print("\n*** CENTER CALIBRATION - PLEASE SIT STILL AND CENTERED (you have 5 seconds to get into position) ***")
+        time.sleep(5.0)
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
@@ -436,9 +443,9 @@ class OpenTrackStick:
         send_t = time.time_ns() if self.debug else 0
         sent_any = False
         debug_msg = []
-        for destination_def, raw_value in zip(self.destination_list, values):
+        for i, destination_def, raw_value in zip(range(6), self.destination_list, values):
             if destination_def:
-                cooked_value = destination_def.cooked_value(raw_value)
+                cooked_value = destination_def.cooked_value(raw_value, self.center[i])
                 data_exhausted &= destination_def.data_exhausted
                 sent_any |= destination_def.send_to_hid(self.hid_device, cooked_value)
                 debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug and cooked_value else None
@@ -446,27 +453,45 @@ class OpenTrackStick:
             sent_any = True
         if sent_any:
             self.hid_device.syn()
+            now = time.time_ns()
+            if self.__auto_center__(values):
+                pass
+                #debug_msg.append(self.auto_center_destination.debug_value(0.0, 1)) if self.debug else None
             if self.debug:
-                now = time.time_ns()
                 messages = ", ".join(debug_msg)
                 if messages != '':
                     print(f"@{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
                           f"data_exhausted={data_exhausted}",
                           messages)
-            if auto_center_needed and self.auto_center_destination is not None:
-                now = time.time_ns()
-                self.auto_center_destination.reset()
-                self.auto_center_destination.send_to_hid(self.hid_device, 1)
-                self.hid_device.syn()
-                time.sleep(0.02)  # Time necessary for the key to register
-                self.auto_center_destination.send_to_hid(self.hid_device, 0)
-                self.hid_device.syn()
-                auto_center_needed = False
-                print(f"@{(now - self.start_time) / 1_000_000_000:.3f} sec, {(now - send_t) / 1_000_000:.2f} ms,"
-                      f"data_exhausted={data_exhausted}",
-                      self.auto_center_destination.debug_value(0.0, 1))
+
         return data_exhausted
 
+    def __auto_center__(self, values):
+        if not self.center_found:
+            # Assume centered at the start
+            self.center = values
+            self.center_found = True
+            print("*** CENTER CALIBRATED TO ",
+                  ", ".join([f"{d.name}={v:.2f}" for d,v in zip(self.opentrack_data_items, values)]),
+                  " ***")
+        if self.auto_center_destination is None:
+            return False
+        global auto_center_needed
+        if auto_center_needed:
+            for i, center_value, value in zip(range(6), self.center, values):  # Ignore z - forward backward offset
+                if abs(center_value - value) > 15.0:
+                    print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
+                    return False
+            print(f"Auto centering is enabled.")
+            self.auto_center_destination.reset()
+            self.auto_center_destination.send_to_hid(self.hid_device, 1)
+            self.hid_device.syn()
+            time.sleep(0.02)  # Time necessary for the key to register
+            self.auto_center_destination.send_to_hid(self.hid_device, 0)
+            self.hid_device.syn()
+            auto_center_needed = False
+            return True
+        return False
 
 class OutputDef:
     def __init__(self, evdev_type, evdev_code, evdev_name, functional=True):
@@ -480,7 +505,7 @@ class OutputDef:
     def bind(self, opentrack_info):
         self.opentrack_info = opentrack_info
 
-    def cooked_value(self, raw_value):
+    def cooked_value(self, raw_value, center_value):
         pass
 
     def send_to_hid(self, hid_device, cooked_value):
@@ -493,7 +518,7 @@ class OutputDef:
         pass
 
     def debug_value(self, raw_value, value):
-        return f"{self.name}->{value} ({self.opentrack_info.name}={raw_value:.4})"
+        return f"{self.name}->{value} ({self.opentrack_info.name}={raw_value:.4f})"
 
 
 class StickOutputDef(OutputDef):
@@ -505,7 +530,7 @@ class StickOutputDef(OutputDef):
         self.smoother = Smooth(n=smoothing, alpha=smooth_alpha)
         self.output_plot_data = output_plot_data
 
-    def cooked_value(self, raw_value):
+    def cooked_value(self, raw_value, center_value):
         ev_info = self.evdev_abs_info
         ot_info = self.opentrack_info
         # This may feed repeat data into the smoother, that should result in the latest value becoming stronger over time.
@@ -529,8 +554,8 @@ class HatOutputDef(OutputDef):
         self.evdev_abs_info = evdev_abs_info
         self.sent_previous_cooked = 0
 
-    def cooked_value(self, raw_value):
-        dif = round(raw_value)
+    def cooked_value(self, raw_value, center_value):
+        dif = round(center_value + raw_value)
         return 0 if dif == 0 else dif // abs(dif)
 
     def send_to_hid(self, hid_device, cooked_value):
@@ -554,8 +579,8 @@ class BtnPairOutputDef(OutputDef):
         self.previous_code = None
         self.start_time = time.time_ns()
 
-    def cooked_value(self, raw_value):
-        dif = round(raw_value)
+    def cooked_value(self, raw_value, center_value):
+        dif = round(center_value + raw_value)
         direction = 0 if -15 < dif < 15 else dif // abs(dif)
         if direction != 0:
             self.evdev_code = self.evdev_code_plus if direction > 0 else self.evdev_code_minus
