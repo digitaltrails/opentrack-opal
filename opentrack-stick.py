@@ -476,6 +476,7 @@ class OpenTrackStick:
             print("*** CENTER CALIBRATED TO ",
                   ", ".join([f"{d.name}={v:.2f}" for d,v in zip(self.opentrack_data_items, values)]),
                   " ***")
+            print(f"\nAuto centering is enabled.") if self.auto_center_destination is not None else None
         if self.auto_center_destination is None:
             return False
         global auto_center_needed
@@ -484,7 +485,6 @@ class OpenTrackStick:
                 if abs(center_value - value) > 15.0:
                     print(f"Off center {time.strftime('%H:%M:%S')}") if self.debug else False
                     return False
-            print(f"Auto centering is enabled.")
             self.auto_center_destination.reset()
             self.auto_center_destination.send_to_hid(self.hid_device, 1)
             self.hid_device.syn()
@@ -557,16 +557,19 @@ class HatOutputDef(OutputDef):
         self.sent_previous_cooked = 0
 
     def cooked_value(self, raw_value, center_value):
-        dif = round(center_value + raw_value)
-        return 0 if dif == 0 else dif // abs(dif)
+        dif = round(raw_value - center_value)
+        return 0 if -15 < dif < 15 else dif // abs(dif)
 
     def send_to_hid(self, hid_device, cooked_value):
         if cooked_value == self.sent_previous_cooked:
             # Don't send again until the key value changes to a different value (-1/0/1)
             return False
         self.sent_previous_cooked = cooked_value
-        return super().send_to_hid(hid_device, cooked_value)
-
+        super().send_to_hid(hid_device, cooked_value)
+        if cooked_value == 0:
+            global auto_center_needed
+            auto_center_needed = True
+        return True
 
 class BtnPairOutputDef(OutputDef):
 
@@ -582,7 +585,7 @@ class BtnPairOutputDef(OutputDef):
         self.start_time = time.time_ns()
 
     def cooked_value(self, raw_value, center_value):
-        dif = round(center_value + raw_value)
+        dif = round(raw_value - center_value)
         direction = 0 if -15 < dif < 15 else dif // abs(dif)
         if direction != 0:
             self.evdev_code = self.evdev_code_plus if direction > 0 else self.evdev_code_minus
@@ -590,8 +593,8 @@ class BtnPairOutputDef(OutputDef):
         return 0  # Button up
 
     def send_to_hid(self, hid_device, cooked_value=None):
-        repeating = self.evdev_code == self.previous_code and cooked_value == self.previous_cooked_value
-        if repeating:
+        if self.evdev_code == self.previous_code and cooked_value == self.previous_cooked_value:
+            # Don't send again until the key value changes to a different value
             return super().send_to_hid(hid_device, None)
         self.previous_code = self.evdev_code
         self.previous_cooked_value = cooked_value
