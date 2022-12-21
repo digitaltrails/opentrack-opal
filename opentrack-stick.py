@@ -602,7 +602,7 @@ class BtnPairOutputDef(OutputDef):
 
     def cooked_value(self, raw_value, center_value):
         dif = round(raw_value - center_value)
-        direction = 0 if -15 < dif < 15 else dif // abs(dif)
+        direction = 0 if -15 < dif < 15 else (dif // abs(dif))
         if direction != 0:
             # It's button down, then the button may have changed, which button was it?
             self.evdev_code = self.evdev_code_plus if direction > 0 else self.evdev_code_minus
