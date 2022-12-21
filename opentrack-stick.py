@@ -411,11 +411,12 @@ class OpenTrackStick:
                 dummy_destination_def = AcdTrainingDummyOutputDef(ecodes.BTN_A, ecodes.BTN_B)
                 dummy_destination_def.bind(self.opentrack_data_items[4])
                 self.destination_list[4] = dummy_destination_def
-        print("\n*** CENTER CALIBRATION - PLEASE SIT STILL AND CENTERED (you have 5 seconds to get into position) ***")
-        time.sleep(5.0)
 
     def start(self, udp_ip=UDP_IP, udp_port=UDP_PORT):
         print(f"UDP IP={udp_ip} PORT={udp_port}")
+        print("\n*** CENTER CALIBRATION - PLEASE SIT STILL AND CENTERED (you have 5 seconds to get into position) ***")
+        time.sleep(5.0)
+        print("*** Waiting for reading from opentrack... ***")
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 48)
         sock.bind((udp_ip, udp_port))
@@ -466,7 +467,7 @@ class OpenTrackStick:
                 cooked_value = destination_def.cooked_value(raw_value, self.center[i])
                 data_exhausted &= destination_def.data_exhausted
                 sent_any |= destination_def.send_to_hid(self.hid_device, cooked_value)
-                debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug and cooked_value else None
+                debug_msg.append(destination_def.debug_value(raw_value, cooked_value)) if self.debug and cooked_value is not None else None
         if self.auto_center_training:
             sent_any = True
         if sent_any:
@@ -474,7 +475,7 @@ class OpenTrackStick:
             now = time.time_ns()
             if self.__auto_center__(values):
                 pass
-                #debug_msg.append(self.auto_center_destination.debug_value(0.0, 1)) if self.debug else None
+                # debug_msg.append(self.auto_center_destination.debug_value(0.0, 1)) if self.debug else None
             if self.debug:
                 messages = ", ".join(debug_msg)
                 if messages != '':
@@ -490,7 +491,7 @@ class OpenTrackStick:
             self.center = values
             self.center_found = True
             print("*** CENTER CALIBRATED TO ",
-                  ", ".join([f"{d.name}={v:.2f}" for d,v in zip(self.opentrack_data_items, values)]),
+                  ", ".join([f"{d.name}={v:.2f}" for d, v in zip(self.opentrack_data_items, values)]),
                   " ***")
             print(f"\nAuto centering is enabled.") if self.auto_center_destination is not None else None
         if self.auto_center_destination is None:
@@ -510,6 +511,7 @@ class OpenTrackStick:
             auto_center_needed = False
             return True
         return False
+
 
 class OutputDef:
     def __init__(self, evdev_type, evdev_code, evdev_name, functional=True):
@@ -574,18 +576,16 @@ class HatOutputDef(OutputDef):
 
     def cooked_value(self, raw_value, center_value):
         dif = round(raw_value - center_value)
-        return 0 if -15 < dif < 15 else dif // abs(dif)
-
-    def send_to_hid(self, hid_device, cooked_value):
+        cooked_value = 0 if -15 < dif < 15 else (dif // abs(dif))
         if cooked_value == self.sent_previous_cooked:
             # Don't send again until the key value changes to a different value (-1/0/1)
-            return False
+            return None
         self.sent_previous_cooked = cooked_value
-        super().send_to_hid(hid_device, cooked_value)
         if cooked_value == 0:
             global auto_center_needed
             auto_center_needed = True
-        return True
+        return cooked_value
+
 
 class BtnPairOutputDef(OutputDef):
 
@@ -602,27 +602,24 @@ class BtnPairOutputDef(OutputDef):
 
     def cooked_value(self, raw_value, center_value):
         dif = round(raw_value - center_value)
-        direction = 0 if -15 < dif < 15 else dif // abs(dif)
+        direction = 0 if -15 < dif < 15 else (dif // abs(dif))
         if direction != 0:
+            # It's button down, then the button may have changed, which button was it?
             self.evdev_code = self.evdev_code_plus if direction > 0 else self.evdev_code_minus
-            return 1  # Button down
-        return 0  # Button up
-
-    def send_to_hid(self, hid_device, cooked_value=None):
+            cooked_value = 1  # Button down
+        else:
+            # It's button up, assume it was the same button as previously pushed down
+            cooked_value = 0
+        # Don't send again if it's the same key with the same value
         if self.evdev_code == self.previous_code and cooked_value == self.previous_cooked_value:
-            # Don't send again until the key value changes to a different value
-            return super().send_to_hid(hid_device, None)
+            return None
+        # Either the button or value has changed (or both)
         self.previous_code = self.evdev_code
         self.previous_cooked_value = cooked_value
-        super().send_to_hid(hid_device, cooked_value)
         if cooked_value == 0:
             global auto_center_needed
             auto_center_needed = True
-        return True
-
-    def reset(self):
-        self.previous_cooked_value = None
-        self.previous_code = None
+        return cooked_value
 
     def debug_value(self, raw_value, value):
         name = self.name_plus if self.evdev_code == self.evdev_code_plus else self.name_minus
@@ -645,8 +642,10 @@ class AcdTrainingDummyOutputDef(BtnPairOutputDef):
             global auto_center_needed
             auto_center_needed = True
         return True
+
     def debug_value(self, raw_value, value):
         return ''
+
 
 class Smooth:
     def __init__(self, n, alpha=0.1):
