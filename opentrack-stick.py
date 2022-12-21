@@ -242,7 +242,7 @@ Limitations
 
 Configuring the neutral center position requires sitting
 at center when opentrack-stick is started.  It also requires
-agreed alignment with 'opentrack' - ove one's head to the
+agreed alignment with 'opentrack' - move your head to the
 neutral position before starting/re-starting tracking in either.
 
 In the current implementation, the BTN's behave like snap actions.
