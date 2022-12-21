@@ -104,8 +104,10 @@ is being sent in response to your movements.
 Any of the button-pairs can be bound the seventh recentering action.
 
 The button bindings, and the heuristics for translating from
-axes to button presses, is currently alpha level implementation.
-It works, but the experience is not that great.
+axes to button presses results in an experience more like
+a snap action rather than a smooth motion along an axis. It's
+much like that experienced with a physical three-state HAT
+axis control.
 
 Snap Center Seventh Binding
 ---------------------------
@@ -130,6 +132,14 @@ when x, y, and z are near center.  To assign this button in a game:
      with auto-centering by passing the seventh binding along
      with your other bindings, for example `-b 9,10,11,4,5,0,12`
 
+When in the game, after any other virtual-button triggered motion,
+moving your head to roughly center/straight neutral position will
+automatically trigger the control.
+
+The auto-center control won't be triggered after any virtual-stick
+motions. Stick motion is precise and absolute. Returning to the stick
+neutral position does not require any assistance.
+
 
 Quick Start
 ===========
@@ -145,15 +155,19 @@ Requires udev rule for access:
     EOF
     sudo udevadm control --reload-rules ; udevadm trigger
 
-Run this script:
+Start the 'opentrack-stick', 'opentrack':
 
-    python3 opentrack-stick.py
-
-Start opentrack; select Output `UDP over network`; configure the
-output option to IP address 127.0.0.1, port 5005; start tracking.
-Now start a game/application that makes use of a joystick;
-in the game/application choose the joystick called `Microsoft X-Box 360 pad 0`.
-
+  1. Run this script:  `python3 opentrack-stick.py`
+  2. Start opentrack+head-tracking-device.
+  3. Select Output `UDP over network`; configure the
+     output option to IP address 127.0.0.1, port 5005.
+  3. Move your head to the neutral orientation in the center position.
+  4. Start opentrack tracking.
+  5. Start a game/application that makes use of a joystick, It's best
+     to start the game last so that the stick is detectable
+     when it initialises.
+  6. In the game/application map game actions to axes, hat, and buttons
+     for the new joystick called `Microsoft X-Box 360`.
 
 Game Training Example: IL2 BoX
 ==============================
@@ -226,8 +240,10 @@ doubles: x, y, z, yaw, pitch, and roll.
 Limitations
 ===========
 
-Discovering the neutral center position requires sitting
-at center when opentrack-stick is started.
+Configuring the neutral center position requires sitting
+at center when opentrack-stick is started.  It also requires
+agreed alignment with 'opentrack' - ove one's head to the
+neutral position before starting/re-starting tracking in either.
 
 In the current implementation, the BTN's behave like snap actions.
 There is almost no control over the magnitude of the action, for
