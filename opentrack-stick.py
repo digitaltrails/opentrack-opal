@@ -572,15 +572,15 @@ class HatOutputDef(OutputDef):
     def __init__(self, evdev_code, evdev_abs_info, functional=True):
         super().__init__(ecodes.EV_ABS, evdev_code, ecodes.ABS[evdev_code], functional)
         self.evdev_abs_info = evdev_abs_info
-        self.sent_previous_cooked = 0
+        self.previous_cooked_value = 0
 
     def cooked_value(self, raw_value, center_value):
         dif = round(raw_value - center_value)
         cooked_value = 0 if -15 < dif < 15 else (dif // abs(dif))
-        if cooked_value == self.sent_previous_cooked:
+        if cooked_value == self.previous_cooked_value:
             # Don't send again until the key value changes to a different value (-1/0/1)
             return None
-        self.sent_previous_cooked = cooked_value
+        self.previous_cooked_value = cooked_value
         if cooked_value == 0:
             global auto_center_needed
             auto_center_needed = True
