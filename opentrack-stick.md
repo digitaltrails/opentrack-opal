@@ -7,21 +7,30 @@ Translate opentrack UDP-output to Linux-HID joystick events.
 Usage:
 ======
 
-    python3 opentrack-stick.py [-h] [-s <int>] [-a <float>] [-b <csv>] [-i ip-addr] [-o <port>] [-d]
+    python3 opentrack-stick.py [-h] [-s <int>] [-a <float>] [-b <int>{7}] [-i ip-addr] [-o <port>] [-d]
 
 Optional Arguments
 ------------------
 
-    -w <float>   Wait seconds for input, then interpolate (default 0.001
+    -w <float>, --wait-seconds <float>
+                 Wait seconds for input, then interpolate (default 0.001
                  to simulate a 1000 MHz mouse)
-    -s <int>     Smooth over n values (default 250)
-    -a <float>   Smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
-    -b <csv>     Bindings for opentrack-axis to virtual-control-number, must be 6 integers
-                 (default 1,2,3,4,5,6,0), the seventh binding is for a snap centre button.
-    -i <ip-addr> The ip-address to listen on for the UDP feed from opentrack
-    -p <port>    The UDP port number to listen on for the UDP feed from opentrack
-    -h           Help
-    -d           Output joystick event values to stdout for debugging purposes.
+    -s <int>, --smooth <int>
+                 smooth over n values (default 250)
+    -a <float>, --smooth-alpha <float>
+                 smoothing alpha 0.0..1.0, smaller values smooth more (default 0.05)
+    -b <int>{7}, --bind <int>{7}
+                 bindings for opentrack-axis to virtual-control-number, must be 7 integers
+                 space separated, the seventh binding is for a snap centre button
+                 (default 1 2 3 4 5 6 0)
+    -i <ip-addr>, ip-address <ip-addr>
+                 the ip-address to listen on for the UDP feed from opentrack
+    -p <port>, --port <port>
+                 the UDP port number to listen on for the UDP feed from opentrack
+    -h, --help   help
+    -H, --detailed-help
+                 detailed help (in Markdown format)
+    -d           output joystick event values to stdout for debugging purposes
 
 Description
 ===========
@@ -76,10 +85,10 @@ Virtual control numbers
     12. BTN_SELECT<=>BTN_START,
     13. BTN_MODE<=>BTN_TR,
 
-For example: `-b 9,0,1,4,5,0` binds opentrack-x to control-9,
+For example: `-b 9 0 1 4 5 0 0` binds opentrack-x to control-9,
 opentrack-y to nothing, opentrack-z to control-1, opentrack-yaw
-to control-4, opentrack-pitch to control-5 to, and opentrack-roll
-to nothing.
+to control-4, opentrack-pitch to control-5 to, opentrack-roll
+to nothing, and no auto-centering.
 
 The ABS (absolute position) mappings correspond to individual
 joystick and HAT axes.
@@ -118,7 +127,7 @@ when x, y, and z are near center.  To assign this button in a game:
 
   1. Choose unassigned button-pair, for example, number 12.
   2. Temporarily make it the only button-pair mapped, for
-     example, `-b 0,0,0,0,0,0,12.
+     example, `-b 0 0 0 0 0 0 12`
   3. Start `opentrack-stick`, it will output the message that
      `Auto center training is on`
   4. Start `opentrack` and the game.
@@ -129,7 +138,7 @@ when x, y, and z are near center.  To assign this button in a game:
   7. The game should bind a new key.
   8. At this point you are done and can now run opentrack-stick
      with auto-centering by passing the seventh binding along
-     with your other bindings, for example `-b 9,10,11,4,5,0,12`
+     with your other bindings, for example `-b 9 10 11 4 5 0 12`
 
 When in the game, after any other virtual-button triggered motion,
 moving your head to roughly center/straight neutral position will
@@ -181,7 +190,7 @@ What I did:
 
 I mapped opentrack head-z, head-yaw, and head-pitch to
 virtual-control-1, virtual-control-4, and virtual-control-5,
-that corresponds to `-b 0,0,1,4,5,0`.
+that corresponds to `-b 0 0 1 4 5 0`.
 
 1. While training, temporarily, configure the game to run
    non-full-screen at a resolution that allows you to easily
@@ -189,7 +198,7 @@ that corresponds to `-b 0,0,1,4,5,0`.
    in which is running opentrack-stick.
 2. Backup `.../IL-2 Sturmovik Battle of Stalingrad/data/input/`
 3. Start opentrack-stick with only one axis mapped. For example,
-   to enable yaw output to virtual-control-4, pass -b 0,0,0,4,0,0..
+   to enable yaw output to virtual-control-4, pass `-b 0 0 0 4 0 0`.
 4. Start opentrack, configure `Output` `UDP over network`
    with the port and address from step 1.
 5. Check that the above is working (perhaps just run
@@ -217,18 +226,21 @@ process.
 Having setup head yaw and pitch, I assigned opentrack-z to
 virtual-control-1 and bound that to the game's head-zoom.
 That's a relatively useful combo, and the one I find works best.
-These bindings correspond to `-b 0,0,1,4,5,0`
+These bindings correspond to `-b 0 0 1 4 5 0`
 
 The game doesn't support using axes for x, y, z head motion,
-it expects these to be assigned to buttons.  I used the
-pair `9. BTN_A<=>BTN_B,BTN` for x, side to side movement;
-`10` for y, and `11` for z. And finally, 12 for auto-centering.
+it expects these to be assigned to buttons.  I bound the
+pair `9. BTN_A<=>BTN_B,BTN` for x (side to side movement);
+`10` for y (vertical movement), and pair `11` for z (forward
+backward movement). Finally, I bound 12 for auto-centering.
 
-My final IL-2 BoX mappings are `-b 9,10,1,4,5,0,12`.
-I additionally mapped head zoom to axis 1, so I can optionally
-switch to the mapping `-b 9,10,1,4,5,0,12`.  The 9,10 and
-12 button binds are just for beta testings at the moment,
-feel free to try them, but I'm not sure thet
+My final IL-2 BoX mappings are `-b 9 10 11 4 5 0 12`.
+
+The game provides an axis mapping for head zoom. It's feasible
+to map opentrack-x to game-head-zoom instead of game-head-x.
+To experiment with this possibility, I additionally mapped
+head zoom to axis 1, so I can optionally switch to the
+mapping `-b 9 10 1 4 5 0 12`.  
 
 Opentrack Protocol
 ==================
